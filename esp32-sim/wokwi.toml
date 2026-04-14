@@ -1,0 +1,5 @@
+[wokwi]
+version = 1
+
+[env]
+board = "esp32-devkit-v1"

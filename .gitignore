@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual Environment
+venv/
+.env/
+
+# Logs & temp
+*.log
+*.tmp
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Streamlit
+.streamlit/
+
+# Data files
+backend/events.json
+
+# VS Code
+.vscode/
+
+# Wokwi build files
+*.elf
+*.bin
+
+# Secrets
+.env
