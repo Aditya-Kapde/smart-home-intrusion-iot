@@ -16,9 +16,11 @@ import json
 import time
 import threading
 import webbrowser
+from functools import wraps
 from datetime import datetime, timedelta
-from flask import Flask, jsonify, send_from_directory, request
+from flask import Flask, jsonify, send_from_directory, request, session, redirect, url_for
 from flask_cors import CORS
+from dotenv import load_dotenv
 
 # Fix Windows console encoding so ASCII art prints correctly
 if sys.platform == "win32":
@@ -33,9 +35,62 @@ EVENTS_FILE = os.path.join(BASE_DIR, "..", "backend", "events.json")
 BACKEND_URL = "http://localhost:5000"
 DASHBOARD_PORT = 8050
 
+# Load project-level .env (sibling of dashboard/ and backend/)
+load_dotenv(os.path.join(BASE_DIR, "..", ".env"))
+
 # ── Flask App ──────────────────────────────────────────────────────────────
 app = Flask(__name__, static_folder=BASE_DIR)
 CORS(app)  # allow cross-origin requests from the HTML
+app.secret_key = os.getenv("FLASK_SECRET_KEY", os.getenv("SECRET_KEY", "change-this-in-production"))
+app.config["SESSION_COOKIE_HTTPONLY"] = True
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+app.config["SESSION_COOKIE_SECURE"] = False  # keep False for localhost HTTP development
+app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(hours=12)
+
+
+def _is_authenticated() -> bool:
+    auth_user = session.get("auth_user")
+    return isinstance(auth_user, dict) and bool(auth_user.get("email"))
+
+
+def _login_user(user_obj: dict | None, fallback_email: str) -> None:
+    u = user_obj or {}
+    email = (u.get("email") or fallback_email or "").strip().lower()
+    session.clear()
+    session["auth_user"] = {
+        "email": email,
+        "role": u.get("role", "user"),
+        "display_name": u.get("display_name", email.split("@")[0] if "@" in email else "user"),
+        "login_time": datetime.now().isoformat(),
+    }
+    session.permanent = True
+
+
+def require_auth_page(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        if not _is_authenticated():
+            return redirect(url_for("login_page"))
+        return func(*args, **kwargs)
+    return wrapper
+
+
+def require_auth_api(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        if not _is_authenticated():
+            return jsonify({"status": "unauthorized", "message": "Login required"}), 401
+        return func(*args, **kwargs)
+    return wrapper
+
+
+@app.after_request
+def disable_cache(response):
+    """Prevent stale cached frontend assets during active development."""
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    return response
 
 # ── Helper: read events.json safely ───────────────────────────────────────
 def load_events():
@@ -61,8 +116,11 @@ def format_event_for_dashboard(ev, idx=0):
     message   = ev.get("message", "")
     distance  = ev.get("distance", ev.get("dist", "--"))
     source    = ev.get("source", "Python Sim")
+    event_class = ev.get("event_class", "")
 
-    if intrusion:
+    if event_class == "network" or source == "Network Monitor":
+        ev_type = 4   # Network
+    elif intrusion:
         ev_type = 0   # Intrusion
     elif "warn" in message.lower() or "approach" in message.lower():
         ev_type = 2   # Warning
@@ -90,25 +148,49 @@ def format_event_for_dashboard(ev, idx=0):
 
 @app.route("/")
 def index():
-    """Serve the main HTML dashboard."""
+    """Serve login first when opening the website root."""
+    if _is_authenticated():
+        return redirect(url_for("dashboard_page"))
+    return send_from_directory(BASE_DIR, "login.html")
+
+
+@app.route("/dashboard")
+@require_auth_page
+def dashboard_page():
+    """Serve the main dashboard page (frontend enforces login session)."""
     return send_from_directory(BASE_DIR, "smart_home_intrusion_full_dashboard.html")
 
 
 @app.route("/login")
 def login_page():
     """Serve the login page."""
+    if _is_authenticated():
+        return redirect(url_for("dashboard_page"))
     return send_from_directory(BASE_DIR, "login.html")
 
 
 @app.route("/profile")
+@require_auth_page
 def profile_page():
     """Serve the profile page."""
     return send_from_directory(BASE_DIR, "profile.html")
 
 
+@app.route("/logout", methods=["GET", "POST"])
+def logout_page():
+    """Destroy server-side session and return to login."""
+    session.clear()
+    return redirect(url_for("login_page"))
+
+
 @app.route("/<path:filename>")
 def static_files(filename):
     """Serve any other static file from the dashboard directory."""
+    protected_files = {"smart_home_intrusion_full_dashboard.html", "profile.html"}
+    if filename in protected_files and not _is_authenticated():
+        return redirect(url_for("login_page"))
+    if filename == "login.html" and _is_authenticated():
+        return redirect(url_for("dashboard_page"))
     return send_from_directory(BASE_DIR, filename)
 
 
@@ -117,6 +199,7 @@ def static_files(filename):
 # ═══════════════════════════════════════════════════════════════════════════
 
 @app.route("/dashboard/api/events", methods=["GET"])
+@require_auth_api
 def api_events():
     """
     Return all events from events.json formatted for the dashboard.
@@ -146,14 +229,16 @@ def api_events():
 
 
 @app.route("/dashboard/api/stats", methods=["GET"])
+@require_auth_api
 def api_stats():
     """Return KPI statistics computed from events.json."""
     events = load_events()
 
     total      = len(events)
     intrusions = sum(1 for e in events if e.get("intrusion", False))
-    safe_ev    = total - intrusions
-    alert_rate = round((intrusions / total * 100), 1) if total > 0 else 0.0
+    network_events = sum(1 for e in events if e.get("event_class") == "network" or e.get("source") == "Network Monitor")
+    safe_ev    = max(0, total - intrusions - network_events)
+    alert_rate = round(((intrusions + network_events) / total * 100), 1) if total > 0 else 0.0
 
     # Today's events
     today = datetime.now().date()
@@ -168,6 +253,7 @@ def api_stats():
 
     today_total      = len(today_events)
     today_intrusions = sum(1 for e in today_events if e.get("intrusion", False))
+    today_network    = sum(1 for e in today_events if e.get("event_class") == "network" or e.get("source") == "Network Monitor")
 
     # Hourly breakdown (last 24h)
     now = datetime.now()
@@ -201,10 +287,12 @@ def api_stats():
     return jsonify({
         "total":           total,
         "intrusions":      intrusions,
+        "network_events":  network_events,
         "safe":            safe_ev,
         "alert_rate":      alert_rate,
         "today_total":     today_total,
         "today_intrusions":today_intrusions,
+        "today_network":   today_network,
         "hourly":          hourly,
         "weekly":          weekly,
         "events_file":     EVENTS_FILE,
@@ -213,6 +301,7 @@ def api_stats():
 
 
 @app.route("/dashboard/api/sensors/latest", methods=["GET"])
+@require_auth_api
 def api_sensors_latest():
     """Return the most recent sensor reading from events.json."""
     events = load_events()
@@ -239,6 +328,36 @@ def api_sensors_latest():
         "intrusion": latest.get("intrusion", False),
         "message":   latest.get("message", ""),
         "timestamp": latest.get("timestamp", ""),
+    })
+
+
+@app.route("/dashboard/api/network/latest", methods=["GET"])
+@require_auth_api
+def api_network_latest():
+    """Return the newest network-monitoring event from events.json."""
+    events = load_events()
+    network_events = [
+        ev for ev in events
+        if ev.get("event_class") == "network" or ev.get("source") == "Network Monitor"
+    ]
+    if not network_events:
+        return jsonify({
+            "status": "ok",
+            "count": 0,
+            "latest": None,
+        })
+
+    def sort_key(e):
+        try:
+            return datetime.fromisoformat(str(e.get("timestamp", "")))
+        except Exception:
+            return datetime.min
+
+    latest = sorted(network_events, key=sort_key, reverse=True)[0]
+    return jsonify({
+        "status": "ok",
+        "count": len(network_events),
+        "latest": latest,
     })
 
 
@@ -285,7 +404,11 @@ def proxy_login():
             method="POST"
         )
         with urllib.request.urlopen(req, timeout=5) as resp:
-            return jsonify(json.loads(resp.read())), resp.status
+            body = json.loads(resp.read())
+            if body.get("status") == "success":
+                req_json = request.json or {}
+                _login_user(body.get("user"), req_json.get("email", ""))
+            return jsonify(body), resp.status
     except urllib.error.HTTPError as e:
         body = {"status": "fail"}
         try:
@@ -309,7 +432,11 @@ def proxy_verify_otp():
             method="POST"
         )
         with urllib.request.urlopen(req, timeout=5) as resp:
-            return jsonify(json.loads(resp.read())), resp.status
+            body = json.loads(resp.read())
+            if body.get("status") == "success":
+                req_json = request.json or {}
+                _login_user(body.get("user"), req_json.get("email", ""))
+            return jsonify(body), resp.status
     except urllib.error.HTTPError as e:
         body = {"status": "fail"}
         try:
@@ -372,6 +499,7 @@ def proxy_verify_register_otp():
 
 
 @app.route("/proxy/detect", methods=["POST"])
+@require_auth_api
 def proxy_detect():
     import urllib.request, urllib.error
     try:
@@ -396,6 +524,7 @@ def proxy_detect():
 
 
 @app.route("/proxy/profile", methods=["POST"])
+@require_auth_api
 def proxy_profile():
     """Fetch user profile (email, display_name, role, last_login, login_count) from backend."""
     import urllib.request, urllib.error

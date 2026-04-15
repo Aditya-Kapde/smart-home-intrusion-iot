@@ -722,7 +722,7 @@
       if (data.status === 'success') {
         pendingEmail = email;
         saveSession(data.user, email);
-        window.location.href = '/';
+        window.location.href = '/dashboard';
       } else {
         throw new Error(data.message || 'Invalid email or password.');
       }
