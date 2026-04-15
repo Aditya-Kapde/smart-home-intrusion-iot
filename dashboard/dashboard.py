@@ -42,6 +42,7 @@ load_dotenv(os.path.join(BASE_DIR, "..", ".env"))
 app = Flask(__name__, static_folder=BASE_DIR)
 CORS(app)  # allow cross-origin requests from the HTML
 app.secret_key = os.getenv("FLASK_SECRET_KEY", os.getenv("SECRET_KEY", "change-this-in-production"))
+app.config["SESSION_COOKIE_NAME"] = "shieldhome_session_v2"
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 app.config["SESSION_COOKIE_SECURE"] = False  # keep False for localhost HTTP development
@@ -63,7 +64,10 @@ def _login_user(user_obj: dict | None, fallback_email: str) -> None:
         "display_name": u.get("display_name", email.split("@")[0] if "@" in email else "user"),
         "login_time": datetime.now().isoformat(),
     }
-    session.permanent = True
+    # Keep the login tied to the current browser session instead of persisting
+    # across browser restarts. This prevents the dashboard from opening later
+    # without a fresh sign-in.
+    session.permanent = False
 
 
 def require_auth_page(func):
