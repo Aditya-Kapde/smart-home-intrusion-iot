@@ -4,7 +4,11 @@ routes.py — ShieldHome Backend Route Blueprint
 All API routes registered as a Flask Blueprint.
 User accounts and device tokens are stored in MongoDB via db.py.
 """
-
+import cv2
+import os
+from camera import capture_image
+from yolo_detector import detect_person
+import threading
 import os
 import smtplib
 from datetime import datetime, timedelta
@@ -77,6 +81,40 @@ def _send_otp_email(
         server.ehlo()
         server.login(smtp_user, smtp_pass)
         server.send_message(msg)
+
+
+def process_motion(base_result):
+    frame = capture_image()
+
+    if frame is None:
+        print("Camera error")
+        return
+
+    is_person = detect_person(frame)
+
+    if is_person:
+        print("🚨 Person detected")
+
+        # Create folder if not exists
+        os.makedirs("captures", exist_ok=True)
+
+        # Unique filename using timestamp
+        filename = f"captures/intrusion_{int(datetime.utcnow().timestamp())}.jpg"
+
+        # Save image
+        cv2.imwrite(filename, frame)
+
+        # Update result
+        base_result["verified"] = True
+        base_result["type"] = "unknown"
+        base_result["source"] = "YOLO"
+        base_result["time"] = str(datetime.utcnow())
+        base_result["image"] = filename   # VERY IMPORTANT
+
+        save_event(base_result)
+
+    else:
+        print("No person detected")
 
 
 # ── Auth Routes ────────────────────────────────────────────────────────────────
@@ -261,9 +299,13 @@ def profile():
 
 @api_bp.route("/detect", methods=["POST"])
 def detect():
-    """Run intrusion detection logic on an incoming sensor payload."""
-    data   = request.get_json(silent=True) or {}
+    data = request.get_json(silent=True) or {}
+
     result = detect_intrusion(data)
+
+    # If PIR says motion → trigger YOLO
     if result.get("intrusion"):
-        save_event(result)
+
+        # Run in background (VERY IMPORTANT)
+        threading.Thread(target=process_motion, args=(result,)).start()
     return jsonify(result)
