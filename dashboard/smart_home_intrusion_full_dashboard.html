@@ -939,11 +939,158 @@
     }
     @media (max-width: 700px) {
       :root { --sidebar-w: 0px; }
-      .sidebar { display: none; }
-      .kpi-grid { grid-template-columns: repeat(2,1fr); }
+      .app { display: block; }
+      .sidebar {
+        display: flex;
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        top: auto;
+        width: 100%;
+        height: auto;
+        min-height: 64px;
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-around;
+        padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
+        border-right: none;
+        border-top: 1px solid var(--outline);
+        overflow-x: auto;
+        overflow-y: hidden;
+        z-index: 120;
+      }
+      .sb-logo, .sb-section, .sb-footer { display: none; }
+      .sb-nav {
+        display: flex;
+        width: 100%;
+        align-items: center;
+        justify-content: space-around;
+        gap: 6px;
+      }
+      .sb-link {
+        margin: 0;
+        padding: 10px;
+        min-width: 44px;
+        justify-content: center;
+        border-radius: 12px;
+      }
+      .sb-link.active::before { display: none; }
+      .main {
+        width: 100%;
+        min-height: 100vh;
+        padding-bottom: 84px;
+      }
+      .topbar {
+        height: auto;
+        padding: 12px 14px;
+        align-items: flex-start;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+      .tb-left, .tb-right {
+        width: 100%;
+        min-width: 0;
+        flex-wrap: wrap;
+      }
+      .tb-left { gap: 8px; }
+      .tb-right {
+        justify-content: space-between;
+        gap: 8px;
+      }
+      .tb-title {
+        font-size: 18px;
+        line-height: 1.15;
+        overflow-wrap: anywhere;
+      }
+      .tb-sub {
+        font-size: 9px;
+        line-height: 1.4;
+        white-space: normal;
+        overflow-wrap: anywhere;
+      }
+      .live-dot, .alert-badge {
+        max-width: 100%;
+        white-space: normal;
+      }
+      .refresh-select, .tb-clock {
+        flex: 1 1 0;
+        min-width: 0;
+      }
+      .tb-btn {
+        flex: 0 0 32px;
+      }
+      .content {
+        padding: 14px 12px 24px;
+      }
+      .section-header {
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+      .section-title {
+        min-width: 0;
+        overflow-wrap: anywhere;
+      }
+      .card, .kpi-card, .stat-card, .live-sensor-card {
+        min-width: 0;
+      }
+      .kpi-grid { grid-template-columns: 1fr 1fr; }
       .grid-2-1, .grid-3, .grid-2 { grid-template-columns: 1fr; }
       .live-sensor-grid { grid-template-columns: 1fr; }
       .sensor-grid { grid-template-columns: 1fr; }
+      .sim-bar {
+        padding: 12px;
+        gap: 8px;
+      }
+      .sim-rate {
+        margin-left: 0;
+        width: 100%;
+        justify-content: space-between;
+      }
+      .sim-range {
+        width: 100%;
+        max-width: 140px;
+      }
+      .api-url {
+        width: 100%;
+        max-width: 100%;
+      }
+      .log-wrap {
+        overflow-x: auto;
+      }
+      .log-table {
+        min-width: 620px;
+      }
+      #page-sensors.active {
+        min-height: auto;
+      }
+    }
+    @media (max-width: 480px) {
+      .topbar {
+        padding: 10px 10px 12px;
+      }
+      .content {
+        padding: 12px 10px 20px;
+      }
+      .kpi-grid {
+        grid-template-columns: 1fr;
+      }
+      .kpi-card {
+        padding: 16px;
+      }
+      .kpi-value {
+        font-size: 26px;
+      }
+      .sim-btn {
+        width: 100%;
+        justify-content: center;
+      }
+      .tb-title {
+        font-size: 16px;
+      }
+      .tb-sub {
+        font-size: 8.5px;
+      }
     }
 
     /* ── MISC UTILITIES ─────────────────────── */
@@ -1509,6 +1656,7 @@
                   <th style="width:110px;">Source</th>
                   <th style="width:80px;">Type</th>
                   <th style="width:75px;">Distance</th>
+                  <th style="width:60px;">Image</th>
                   <th>Notes</th>
                 </tr>
               </thead>
@@ -1883,31 +2031,32 @@
   </div>
 </div>
 
+<!-- IMAGE MODAL -->
+<div class="modal-overlay" id="image-modal" style="z-index: 10000;">
+  <div class="modal" style="max-width: 600px;">
+    <div class="modal-title">
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 6l6-6 6 6 6-6v14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6z"/><circle cx="8" cy="10" r="2"/></svg>
+      Captured Image
+    </div>
+    <div class="modal-body" style="text-align: center;">
+      <img id="modal-image" src="" style="max-width: 100%; max-height: 400px; border-radius: var(--radius-sm);" />
+    </div>
+    <div class="modal-footer">
+      <button class="modal-btn ghost" onclick="closeImageModal()">Close</button>
+    </div>
+  </div>
+</div>
+
 <!-- TOAST STACK -->
 <div class="toast-stack" id="toast-stack"></div>
 
 <!-- ══════════════════ SCRIPTS ══════════════════ -->
 <script>
 /* ============================================================
-   AUTH GUARD
+   AUTH GUARD - REMOVED
    ============================================================ */
-(function enforceDashboardLogin() {
-  try {
-    const raw = sessionStorage.getItem('aegis_user');
-    if (!raw) {
-      window.location.replace('/login');
-      return;
-    }
-    const user = JSON.parse(raw);
-    if (!user || !user.email) {
-      sessionStorage.removeItem('aegis_user');
-      window.location.replace('/login');
-    }
-  } catch {
-    sessionStorage.removeItem('aegis_user');
-    window.location.replace('/login');
-  }
-})();
+   // Authentication is now handled server-side by Flask routes
+   // The /dashboard route has @require_auth_page decorator
 
 /* ============================================================
    DESIGN TOKENS (mirrored from CSS for JS use)
@@ -2167,6 +2316,7 @@ function renderLog(data, bodyId, showIdx=false, filterEv=null) {
       <td style="font-size:11px;color:var(--txt-sec);">${r.src}</td>
       <td><span class="badge ${ev.cls}">${ev.label}</span></td>
       <td class="text-mono" style="font-size:11px;">${r.dist}</td>
+      <td>${r.image ? `<img src="/captures/${r.image.split('/').pop()}" style="width:40px;height:30px;object-fit:cover;border-radius:3px;" onclick="showImageModal('/captures/${r.image.split('/').pop()}')" />` : ''}</td>
       <td style="font-size:11px;color:var(--txt-sec);">${r.note}</td>`;
     body.appendChild(tr);
   });
@@ -2174,9 +2324,15 @@ function renderLog(data, bodyId, showIdx=false, filterEv=null) {
   document.getElementById('sb-badge').textContent = logData.filter(r=>r.ev===0).length;
 }
 
-function filterLog() {
-  const val = document.getElementById('log-filter').value;
-  renderLog(logData, 'full-log-body', true, val==='all' ? null : parseInt(val));
+function showImageModal(imageUrl) {
+  const modal = document.getElementById('image-modal');
+  const modalImg = document.getElementById('modal-image');
+  modalImg.src = imageUrl;
+  modal.style.display = 'block';
+}
+
+function closeImageModal() {
+  document.getElementById('image-modal').style.display = 'none';
 }
 
 renderLog(logData, 'log-body', false);
@@ -2425,11 +2581,39 @@ updateKPIs();
 const DASH_API   = '/dashboard/api';
 let   usingRealData = false;
 let   pollInterval  = null;
+let   authRedirectPending = false;
+
+function stopRealPolling() {
+  if (pollInterval) {
+    clearInterval(pollInterval);
+    pollInterval = null;
+  }
+}
+
+function handleUnauthorized() {
+  if (authRedirectPending) return true;
+  authRedirectPending = true;
+  usingRealData = false;
+  stopRealPolling();
+
+  const srcEl = document.getElementById('data-source-label');
+  if (srcEl) srcEl.textContent = 'Session expired';
+
+  showToast('warn', 'Session expired', 'Please sign in again. Redirecting to login...', 2200);
+  setTimeout(() => {
+    window.location.replace('/login');
+  }, 900);
+  return true;
+}
 
 /** Fetch real stats (KPIs + hourly + weekly) from dashboard.py */
 async function fetchStats() {
   try {
     const res = await fetch(`${DASH_API}/stats`, { signal: AbortSignal.timeout(3000) });
+    if (res.status === 401) {
+      handleUnauthorized();
+      return null;
+    }
     if (!res.ok) return null;
     return await res.json();
   } catch { return null; }
@@ -2439,15 +2623,23 @@ async function fetchStats() {
 async function fetchEvents(limit=100) {
   try {
     const res = await fetch(`${DASH_API}/events?limit=${limit}`, { signal: AbortSignal.timeout(3000) });
-    if (!res.ok) return null;
+    if (res.status === 401) {
+      handleUnauthorized();
+      return [];
+    }
+    if (!res.ok) return [];
     return await res.json();
-  } catch { return null; }
+  } catch { return []; }
 }
 
 /** Fetch latest sensor reading from dashboard.py */
 async function fetchLatestSensor() {
   try {
     const res = await fetch(`${DASH_API}/sensors/latest`, { signal: AbortSignal.timeout(3000) });
+    if (res.status === 401) {
+      handleUnauthorized();
+      return null;
+    }
     if (!res.ok) return null;
     return await res.json();
   } catch { return null; }
@@ -2596,6 +2788,10 @@ async function pollRealData() {
 async function initRealData() {
   try {
     const res = await fetch(`${DASH_API}/health`, { signal: AbortSignal.timeout(2000) });
+    if (res.status === 401) {
+      handleUnauthorized();
+      return;
+    }
     if (res.ok) {
       const health = await res.json();
       console.log('[ShieldHome] Connected to dashboard.py Flask server:', health);
@@ -2616,7 +2812,8 @@ async function initRealData() {
       /* Then poll at the selected refresh interval */
       const sel = document.getElementById('refresh-select');
       const startPoll = () => {
-        if (pollInterval) clearInterval(pollInterval);
+        if (authRedirectPending) return;
+        stopRealPolling();
         pollInterval = setInterval(pollRealData, parseInt(sel.value));
       };
       sel.addEventListener('change', startPoll);

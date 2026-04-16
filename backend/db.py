@@ -42,6 +42,10 @@ def _tokens():
     return get_db()["device_tokens"]
 
 
+def _app_settings():
+    return get_db()["app_settings"]
+
+
 # ── User operations ────────────────────────────────────────────────────────────
 
 def find_user(email: str) -> dict | None:
@@ -95,6 +99,50 @@ def update_user_login(email: str) -> None:
             "$inc": {"login_count": 1},
         },
     )
+
+
+def list_alert_recipients() -> list[str]:
+    """Return preferred email recipients for intrusion alerts."""
+    docs = list(
+        _users().find(
+            {"role": {"$in": ["security", "admin"]}},
+            {"_id": 0, "email": 1},
+        )
+    )
+    emails = [str(doc.get("email", "")).strip().lower() for doc in docs if doc.get("email")]
+    if emails:
+        return sorted(set(emails))
+
+    docs = list(_users().find({}, {"_id": 0, "email": 1}))
+    emails = [str(doc.get("email", "")).strip().lower() for doc in docs if doc.get("email")]
+    return sorted(set(emails))
+
+
+def set_active_alert_recipient(email: str) -> None:
+    """Persist the most recently authenticated dashboard user for alert delivery."""
+    normalized = str(email or "").strip().lower()
+    if not normalized:
+        return
+    _app_settings().update_one(
+        {"key": "active_alert_recipient"},
+        {
+            "$set": {
+                "key": "active_alert_recipient",
+                "email": normalized,
+                "updated_at": datetime.utcnow(),
+            }
+        },
+        upsert=True,
+    )
+
+
+def get_active_alert_recipient() -> str | None:
+    """Return the most recent dashboard login email used for alert delivery."""
+    doc = _app_settings().find_one({"key": "active_alert_recipient"}, {"_id": 0, "email": 1})
+    if not doc:
+        return None
+    email = str(doc.get("email", "")).strip().lower()
+    return email or None
 
 
 def seed_default_users():

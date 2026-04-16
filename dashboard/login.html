@@ -841,7 +841,21 @@
       document.getElementById('stat-events').textContent = '—';
     }
   }
-  loadStats();
+
+  // ────────────────────────────────────────────────────────────
+  // INIT
+  // ────────────────────────────────────────────────────────────
+  document.addEventListener('DOMContentLoaded', function() {
+    // Clear any stale client-side session data
+    sessionStorage.removeItem('aegis_user');
+
+    // Don't check server session here - let the user login normally
+    // The health endpoint is public and doesn't indicate login status
+
+    setLoginBtnText();
+    document.getElementById('email').focus();
+    loadStats();
+  });
 </script>
 </body>
 </html>

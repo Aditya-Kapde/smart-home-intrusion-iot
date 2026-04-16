@@ -46,6 +46,7 @@ app.config["SESSION_COOKIE_NAME"] = "shieldhome_session_v2"
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 app.config["SESSION_COOKIE_SECURE"] = False  # keep False for localhost HTTP development
+app.config["SESSION_COOKIE_DOMAIN"] = None  # Allow all domains for localhost
 app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(hours=12)
 
 
@@ -73,6 +74,11 @@ def _login_user(user_obj: dict | None, fallback_email: str) -> None:
 def require_auth_page(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
+        # Clear any invalid sessions
+        auth_user = session.get("auth_user")
+        if auth_user and not (isinstance(auth_user, dict) and bool(auth_user.get("email"))):
+            session.clear()
+
         if not _is_authenticated():
             return redirect(url_for("login_page"))
         return func(*args, **kwargs)
@@ -134,6 +140,7 @@ def format_event_for_dashboard(ev, idx=0):
         ev_type = 1   # Safe
 
     dist_str = f"{distance} cm" if isinstance(distance, (int, float)) else str(distance)
+    image = ev.get("image", "")
 
     return {
         "id":   idx,
@@ -143,6 +150,7 @@ def format_event_for_dashboard(ev, idx=0):
         "dist": dist_str,
         "note": message,
         "raw_ts": str(ts),
+        "image": image,
     }
 
 
@@ -153,6 +161,11 @@ def format_event_for_dashboard(ev, idx=0):
 @app.route("/")
 def index():
     """Serve login first when opening the website root."""
+    # Clear any invalid sessions
+    auth_user = session.get("auth_user")
+    if auth_user and not (isinstance(auth_user, dict) and bool(auth_user.get("email"))):
+        session.clear()
+
     if _is_authenticated():
         return redirect(url_for("dashboard_page"))
     return send_from_directory(BASE_DIR, "login.html")
@@ -184,18 +197,26 @@ def profile_page():
 def logout_page():
     """Destroy server-side session and return to login."""
     session.clear()
-    return redirect(url_for("login_page"))
+    response = redirect(url_for("login_page"))
+    response.delete_cookie("shieldhome_session_v2")
+    return response
 
 
-@app.route("/<path:filename>")
-def static_files(filename):
-    """Serve any other static file from the dashboard directory."""
-    protected_files = {"smart_home_intrusion_full_dashboard.html", "profile.html"}
-    if filename in protected_files and not _is_authenticated():
-        return redirect(url_for("login_page"))
-    if filename == "login.html" and _is_authenticated():
-        return redirect(url_for("dashboard_page"))
-    return send_from_directory(BASE_DIR, filename)
+@app.route("/force-logout")
+def force_logout():
+    """Force logout - clear all sessions and redirect to login."""
+    session.clear()
+    response = redirect(url_for("login_page"))
+    response.delete_cookie("shieldhome_session_v2")
+    return response
+
+
+@app.route("/captures/<path:filename>")
+@require_auth_page
+def serve_capture(filename):
+    """Serve captured intrusion images from backend/captures folder."""
+    captures_dir = os.path.join(BASE_DIR, "..", "backend", "captures")
+    return send_from_directory(captures_dir, filename)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
