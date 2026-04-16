@@ -27,6 +27,10 @@ app.register_blueprint(api_bp)
 
 
 if __name__ == "__main__":
-    # if os.environ.get("WERKZEUG_RUN_MAIN") == "true" or not app.debug:
-    #     start_network_monitor()
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    start_network_monitor()
+    app.run(
+        host="0.0.0.0",
+        port=5000,
+        debug=False,
+        use_reloader=False,
+    )
