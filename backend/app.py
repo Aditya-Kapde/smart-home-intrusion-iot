@@ -1,38 +1,36 @@
-from flask import Flask, request, jsonify
-from detector import detect_intrusion
-from storage import save_event
+"""
+app.py — ShieldHome Backend Entry Point
+========================================
+Loads environment variables, creates the Flask app,
+registers the routes Blueprint, and starts the server.
+
+Run:
+    python app.py
+"""
+
+import os
+from dotenv import load_dotenv
+from flask import Flask
+from flask_cors import CORS
+
+# Load .env from project root (one level up from backend/)
+load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
+
+from routes import api_bp  # noqa: E402 — import after env is loaded
+from network_monitor import start_network_monitor  # noqa: E402
 
 app = Flask(__name__)
+CORS(app)
 
-# 🔐 Fake user database
-USERS = {
-    "admin": "1234",
-    "doctor": "pass"
-}
-
-# 🔑 LOGIN API
-@app.route("/login", methods=["POST"])
-def login():
-    data = request.json
-    username = data.get("username")
-    password = data.get("password")
-
-    if USERS.get(username) == password:
-        return jsonify({"status": "success"})
-    return jsonify({"status": "fail"}), 401
-
-
-# 🚨 DETECT API
-@app.route("/detect", methods=["POST"])
-def detect():
-    data = request.json
-    result = detect_intrusion(data)
-
-    if result["intrusion"]:
-        save_event(result)
-
-    return jsonify(result)
+# Register all API routes
+app.register_blueprint(api_bp)
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    start_network_monitor()
+    app.run(
+        host="0.0.0.0",
+        port=5000,
+        debug=False,
+        use_reloader=False,
+    )

@@ -1,0 +1,2841 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ShieldHome — Smart Intrusion Detection Dashboard</title>
+  <meta name="description" content="Real-time Smart Home IoT Intrusion Detection Dashboard. Monitor PIR, ultrasonic, LDR and touch sensors with live analytics, event logs and system architecture."/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+  <style>
+    /* ============================================================
+       AEGIS SENTINEL DESIGN SYSTEM — TOKENS
+       ============================================================ */
+    :root {
+      --bg:            #0f131d;
+      --bg-low:        #0a0e18;
+      --surface:       #171b26;
+      --surface-hi:    #1c1f2a;
+      --surface-hh:    #262a35;
+      --surface-top:   #313540;
+      --primary:       #68dbae;
+      --primary-dim:   #1D9E75;
+      --primary-dp:    #26a37a;
+      --danger:        #ff544c;
+      --danger-soft:   rgba(255,84,76,.12);
+      --warn:          #f59e0b;
+      --warn-soft:     rgba(245,158,11,.12);
+      --info:          #60a5fa;
+      --info-soft:     rgba(96,165,250,.10);
+      --txt:           #dfe2f1;
+      --txt-sec:       #bccac1;
+      --txt-dim:       #87948c;
+      --outline:       rgba(255,255,255,0.07);
+      --shadow:        0 24px 48px rgba(0,0,0,.45);
+      --radius-sm:     6px;
+      --radius-md:     10px;
+      --radius-lg:     14px;
+      --font:          'Inter', system-ui, sans-serif;
+      --mono:          'JetBrains Mono', monospace;
+      --sidebar-w:     220px;
+      --trans:         0.3s cubic-bezier(.4,0,.2,1);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: var(--font);
+      font-size: 13px;
+      background: var(--bg);
+      color: var(--txt);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ── SCROLLBAR ─────────────────────────────── */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--surface-top); border-radius: 4px; }
+
+    /* ============================================================
+       LAYOUT
+       ============================================================ */
+    .app { display: flex; min-height: 100vh; }
+
+    /* ── SIDEBAR ─────────────────────────────────── */
+    .sidebar {
+      width: var(--sidebar-w);
+      flex-shrink: 0;
+      background: var(--bg-low);
+      display: flex;
+      flex-direction: column;
+      border-right: 1px solid var(--outline);
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+      z-index: 100;
+      transition: width var(--trans);
+    }
+
+    .sb-logo {
+      padding: 20px 16px 16px;
+      border-bottom: 1px solid var(--outline);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .sb-logo-icon {
+      width: 34px; height: 34px;
+      border-radius: var(--radius-sm);
+      background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dp) 100%);
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      box-shadow: 0 0 16px rgba(104,219,174,.25);
+    }
+    .sb-brand-name { font-size: 14px; font-weight: 600; color: var(--txt); letter-spacing: -.02em; }
+    .sb-brand-sub  { font-size: 10px; color: var(--txt-dim); margin-top: 1px; letter-spacing: .04em; text-transform: uppercase; }
+
+    .sb-section {
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--txt-dim);
+      padding: 16px 16px 6px;
+    }
+
+    .sb-link {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 14px;
+      margin: 1px 8px;
+      border-radius: var(--radius-sm);
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--txt-sec);
+      cursor: pointer;
+      text-decoration: none;
+      transition: background var(--trans), color var(--trans);
+      position: relative;
+      user-select: none;
+    }
+    .sb-link:hover { background: var(--surface-hi); color: var(--txt); }
+    .sb-link.active {
+      background: rgba(104,219,174,.10);
+      color: var(--primary);
+    }
+    .sb-link.active::before {
+      content: '';
+      position: absolute;
+      left: 0; top: 20%; bottom: 20%;
+      width: 2px;
+      border-radius: 2px;
+      background: var(--primary);
+      box-shadow: 0 0 8px var(--primary);
+    }
+    .sb-link .badge {
+      margin-left: auto;
+      font-size: 10px;
+      background: var(--danger);
+      color: #fff;
+      border-radius: 20px;
+      padding: 1px 7px;
+      font-weight: 600;
+    }
+
+    .sb-footer {
+      margin-top: auto;
+      padding: 14px;
+      border-top: 1px solid var(--outline);
+    }
+    .user-pill { display: flex; align-items: center; gap: 10px; }
+    .user-avatar {
+      width: 32px; height: 32px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--primary-dp), var(--primary));
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 700; color: #003827; flex-shrink: 0;
+    }
+    .user-name  { font-size: 12px; font-weight: 600; color: var(--txt); }
+    .user-role  { font-size: 10px; color: var(--txt-dim); margin-top: 1px; }
+
+    .logout-btn {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+      margin-top: 10px;
+      padding: 8px 10px;
+      border-radius: var(--radius-sm);
+      border: 1px solid rgba(255,84,76,.25);
+      background: rgba(255,84,76,.06);
+      color: var(--danger);
+      font-size: 12px;
+      font-weight: 500;
+      font-family: var(--font);
+      cursor: pointer;
+      transition: background var(--trans), border-color var(--trans), color var(--trans);
+      text-decoration: none;
+    }
+    .logout-btn:hover {
+      background: rgba(255,84,76,.14);
+      border-color: rgba(255,84,76,.45);
+      color: #ff6b65;
+    }
+
+    /* ── MAIN CONTENT ──────────────────────────── */
+    .main {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── TOPBAR ────────────────────────────────── */
+    .topbar {
+      background: var(--bg-low);
+      border-bottom: 1px solid var(--outline);
+      padding: 0 24px;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 90;
+      flex-shrink: 0;
+    }
+    .tb-left  { display: flex; align-items: center; gap: 14px; }
+    .tb-right { display: flex; align-items: center; gap: 10px; }
+    .tb-title { font-size: 15px; font-weight: 600; color: var(--txt); letter-spacing: -.02em; }
+    .tb-sub   { font-size: 10px; color: var(--txt-dim); margin-top: 1px; font-family: var(--mono); letter-spacing: .02em; }
+
+    /* Live badge */
+    .live-dot {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(104,219,174,.08);
+      border: 1px solid rgba(104,219,174,.2);
+      border-radius: 20px;
+      padding: 4px 10px;
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--primary);
+    }
+    .live-dot::before {
+      content: '';
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--primary);
+      box-shadow: 0 0 0 0 rgba(104,219,174,.6);
+      animation: heartbeat 1.4s infinite;
+    }
+    @keyframes heartbeat {
+      0%   { box-shadow: 0 0 0 0   rgba(104,219,174,.6); }
+      70%  { box-shadow: 0 0 0 6px rgba(104,219,174,0);  }
+      100% { box-shadow: 0 0 0 0   rgba(104,219,174,0);  }
+    }
+
+    .alert-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: var(--danger-soft);
+      border: 1px solid rgba(255,84,76,.3);
+      border-radius: 20px;
+      padding: 4px 10px;
+      font-size: 11px; font-weight: 600; color: var(--danger);
+      animation: blink-bg 1.1s infinite;
+    }
+    @keyframes blink-bg {
+      0%,100% { opacity:1; }
+      50% { opacity:.55; }
+    }
+
+    .tb-clock {
+      font-family: var(--mono);
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--txt-sec);
+      background: var(--surface);
+      padding: 5px 10px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--outline);
+      min-width: 80px;
+      text-align: center;
+    }
+    .tb-btn {
+      display: flex; align-items: center; justify-content: center;
+      width: 32px; height: 32px;
+      border-radius: var(--radius-sm);
+      background: var(--surface);
+      border: 1px solid var(--outline);
+      color: var(--txt-sec);
+      cursor: pointer;
+      transition: background var(--trans), color var(--trans);
+    }
+    .tb-btn:hover { background: var(--surface-hi); color: var(--txt); }
+
+    /* REFRESH SELECT */
+    .refresh-select {
+      font-size: 11px;
+      font-family: var(--font);
+      padding: 5px 8px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--outline);
+      background: var(--surface);
+      color: var(--txt-sec);
+      cursor: pointer;
+      outline: none;
+    }
+    .refresh-select:focus { border-color: var(--primary); color: var(--txt); }
+
+    /* ── CONTENT AREA ──────────────────────────── */
+    .content {
+      padding: 20px 24px;
+      flex: 1;
+      overflow-y: auto;
+    }
+
+    /* ── PAGES ─────────────────────────────────── */
+    .page-view { display: none; }
+    .page-view.active { display: block; }
+
+    /* ============================================================
+       COMPONENTS
+       ============================================================ */
+
+    /* SECTION HEADER */
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+    .section-title {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: var(--txt-dim);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* CARD */
+    .card {
+      background: var(--surface);
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--outline);
+      padding: 16px 18px;
+      transition: background var(--trans);
+      position: relative;
+      overflow: hidden;
+    }
+    .card:hover { background: var(--surface-hi); }
+    .card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--primary-cap, transparent), transparent);
+      border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    }
+    .card.accent-green  { --primary-cap: rgba(104,219,174,.4); }
+    .card.accent-red    { --primary-cap: rgba(255,84,76,.4);   }
+    .card.accent-amber  { --primary-cap: rgba(245,158,11,.4);  }
+    .card.accent-blue   { --primary-cap: rgba(96,165,250,.4);  }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+    .card-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--txt-sec);
+      letter-spacing: .01em;
+    }
+    .card-sub { font-size: 10px; color: var(--txt-dim); margin-top: 2px; }
+
+    /* BADGE */
+    .badge {
+      font-size: 10px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 20px;
+      letter-spacing: .02em;
+    }
+    .badge-green  { background: rgba(104,219,174,.15); color: var(--primary); border: 1px solid rgba(104,219,174,.2); }
+    .badge-red    { background: var(--danger-soft);   color: var(--danger);   border: 1px solid rgba(255,84,76,.2);  }
+    .badge-amber  { background: var(--warn-soft);     color: var(--warn);     border: 1px solid rgba(245,158,11,.2); }
+    .badge-blue   { background: var(--info-soft);     color: var(--info);     border: 1px solid rgba(96,165,250,.2); }
+
+    /* ── KPI GRID ─────────────────────────────── */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    .kpi-card {
+      background: var(--surface);
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--outline);
+      padding: 18px;
+      position: relative;
+      overflow: hidden;
+      transition: transform var(--trans), box-shadow var(--trans);
+      cursor: default;
+    }
+    .kpi-card:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow);
+    }
+    /* top accent line */
+    .kpi-card.kpi-cyan   { border-top: 2px solid rgba(34,211,238,.5); }
+    .kpi-card.kpi-green  { border-top: 2px solid rgba(104,219,174,.5); }
+    .kpi-card.kpi-red    { border-top: 2px solid rgba(255,84,76,.5);  }
+    .kpi-card.kpi-amber  { border-top: 2px solid rgba(245,158,11,.5); }
+    .kpi-card.kpi-blue   { border-top: 2px solid rgba(96,165,250,.5); }
+
+    .kpi-icon-wrap {
+      width: 38px; height: 38px;
+      border-radius: var(--radius-md);
+      display: flex; align-items: center; justify-content: center;
+      margin-bottom: 14px;
+    }
+    .kpi-icon-cyan  { background: rgba(34,211,238,.12);  color: #22d3ee; }
+    .kpi-icon-green { background: rgba(104,219,174,.12); color: var(--primary); }
+    .kpi-icon-red   { background: var(--danger-soft);    color: var(--danger);  }
+    .kpi-icon-amber { background: var(--warn-soft);      color: var(--warn);    }
+    .kpi-icon-blue  { background: var(--info-soft);      color: var(--info);    }
+
+    .kpi-label {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: .07em;
+      text-transform: uppercase;
+      color: var(--txt-dim);
+      margin-bottom: 8px;
+    }
+    .kpi-value {
+      font-size: 30px;
+      font-weight: 700;
+      color: var(--txt);
+      letter-spacing: -.03em;
+      line-height: 1;
+      margin-bottom: 8px;
+    }
+    .kpi-delta {
+      font-size: 11px;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .kpi-delta.up   { color: var(--danger); }
+    .kpi-delta.dn   { color: var(--primary); }
+    .kpi-delta.neu  { color: var(--txt-dim); }
+
+    /* Glow watermark BG */
+    .kpi-glow {
+      position: absolute;
+      right: -16px; bottom: -16px;
+      width: 80px; height: 80px;
+      border-radius: 50%;
+      opacity: .05;
+    }
+    .kpi-cyan  .kpi-glow { background: #22d3ee; }
+    .kpi-green .kpi-glow { background: var(--primary); }
+    .kpi-red   .kpi-glow { background: var(--danger);  }
+    .kpi-amber .kpi-glow { background: var(--warn);    }
+    .kpi-blue  .kpi-glow { background: var(--info);    }
+
+    /* ── GRID LAYOUTS ─────────────────────────── */
+    .grid-2-1 { display: grid; grid-template-columns: 2fr 1fr; gap: 14px; margin-bottom: 14px; }
+    .grid-3   { display: grid; grid-template-columns: repeat(3,1fr); gap: 14px; margin-bottom: 14px; }
+    .grid-2   { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+
+    /* ── SIMULATOR BAR ────────────────────────── */
+    .sim-bar {
+      background: var(--surface);
+      border: 1px solid var(--outline);
+      border-left: 3px solid var(--primary-dim);
+      border-radius: var(--radius-md);
+      padding: 10px 16px;
+      margin-bottom: 18px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .sim-label  { font-size: 11px; font-weight: 600; color: var(--txt-sec); letter-spacing: .04em; text-transform: uppercase; }
+    .sim-sep    { width: 1px; height: 20px; background: var(--outline); }
+    .sim-btn {
+      font-size: 11px;
+      font-weight: 500;
+      font-family: var(--font);
+      padding: 5px 12px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--outline);
+      background: var(--surface-hi);
+      color: var(--txt-sec);
+      cursor: pointer;
+      transition: all var(--trans);
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .sim-btn:hover { background: var(--surface-hh); color: var(--txt); }
+    .sim-btn.run-active { background: rgba(104,219,174,.12); color: var(--primary); border-color: rgba(104,219,174,.3); }
+    .sim-btn.pause-active { background: var(--warn-soft); color: var(--warn); border-color: rgba(245,158,11,.3); }
+    .sim-btn.intrude-btn { border-color: rgba(255,84,76,.3); color: var(--danger); }
+    .sim-btn.intrude-btn:hover { background: var(--danger-soft); }
+
+    .sim-rate { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+    .sim-rate-label { font-size: 10px; color: var(--txt-dim); }
+    .sim-range {
+      -webkit-appearance: none;
+      width: 90px; height: 4px;
+      border-radius: 4px;
+      background: var(--surface-hh);
+      outline: none;
+    }
+    .sim-range::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px; height: 14px;
+      border-radius: 50%;
+      background: var(--primary);
+      cursor: pointer;
+      box-shadow: 0 0 6px rgba(104,219,174,.4);
+    }
+    .sim-rate-val { font-size: 12px; font-weight: 600; color: var(--txt); font-family: var(--mono); min-width: 22px; }
+
+    .api-url {
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--txt-dim);
+      background: var(--surface-hi);
+      padding: 4px 8px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--outline);
+      max-width: 260px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      cursor: text;
+    }
+
+    /* ── CHART WRAPPER ────────────────────────── */
+    .chart-wrap { position: relative; width: 100%; }
+    .chart-h180 { height: 180px; }
+    .chart-h150 { height: 150px; }
+    .chart-h130 { height: 130px; }
+    .chart-legend {
+      display: flex;
+      gap: 14px;
+      margin-top: 10px;
+      flex-wrap: wrap;
+    }
+    .leg-item {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 10px;
+      color: var(--txt-dim);
+    }
+    .leg-line {
+      width: 14px; height: 2px;
+      border-radius: 2px;
+      display: inline-block;
+    }
+    .leg-dot {
+      width: 8px; height: 8px;
+      border-radius: 2px;
+      display: inline-block;
+    }
+
+    /* ── SENSOR GRID ──────────────────────────── */
+    .sensor-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .sensor-item {
+      background: var(--surface-hi);
+      border-radius: var(--radius-md);
+      padding: 10px 12px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border: 1px solid var(--outline);
+      transition: background var(--trans);
+    }
+    .sensor-item:hover { background: var(--surface-hh); }
+    .sensor-icon {
+      width: 34px; height: 34px;
+      border-radius: var(--radius-sm);
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .si-green { background: rgba(104,219,174,.12); color: var(--primary); }
+    .si-blue  { background: var(--info-soft);      color: var(--info);    }
+    .si-amber { background: var(--warn-soft);       color: var(--warn);    }
+    .si-red   { background: var(--danger-soft);     color: var(--danger);  }
+    .si-purple{ background: rgba(167,139,250,.12);  color: #a78bfa;        }
+    .sensor-name { font-size: 11px; font-weight: 600; color: var(--txt); }
+    .sensor-val  { font-size: 12px; color: var(--primary); font-family: var(--mono); font-weight: 500; }
+    .sensor-state { margin-left: auto; flex-shrink: 0; }
+
+    /* ── SERVICES LIST ───────────────────────── */
+    .svc-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 9px 12px;
+      background: var(--surface-hi);
+      border-radius: var(--radius-sm);
+      margin-bottom: 6px;
+      border: 1px solid var(--outline);
+      transition: background var(--trans);
+    }
+    .svc-item:last-child { margin-bottom: 0; }
+    .svc-item:hover { background: var(--surface-hh); }
+    .svc-name { font-size: 12px; font-weight: 500; color: var(--txt); display: flex; align-items: center; gap: 7px; }
+    .svc-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      animation: heartbeat 1.4s infinite;
+    }
+    .svc-dot.green { background: var(--primary);  box-shadow: 0 0 0 2px rgba(104,219,174,.2); }
+    .svc-dot.amber { background: var(--warn);     box-shadow: 0 0 0 2px rgba(245,158,11,.2); animation: none; }
+    .svc-dot.red   { background: var(--danger);   box-shadow: 0 0 0 2px rgba(255,84,76,.2); }
+    .svc-uptime    { font-size: 10px; color: var(--txt-dim); font-family: var(--mono); }
+
+    /* ── ARCHITECTURE PIPELINE ───────────────── */
+    .arch-pipe {
+      display: flex;
+      align-items: center;
+      overflow-x: auto;
+      padding: 12px 0 8px;
+      gap: 0;
+      scrollbar-width: none;
+    }
+    .arch-pipe::-webkit-scrollbar { display: none; }
+
+    .arch-node-wrap { display: flex; align-items: center; }
+    .arch-node {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-width: 100px;
+    }
+    .arch-box {
+      border-radius: var(--radius-md);
+      padding: 10px 14px;
+      font-size: 11px;
+      font-weight: 600;
+      text-align: center;
+      min-width: 88px;
+      border: 1px solid var(--outline);
+      transition: transform var(--trans);
+      position: relative;
+    }
+    .arch-box:hover { transform: translateY(-2px); }
+    .arch-box-green { background: rgba(104,219,174,.10); color: var(--primary); }
+    .arch-box-blue  { background: var(--info-soft);      color: var(--info);    }
+    .arch-box-red   { background: var(--danger-soft);    color: #f87171;        }
+    .arch-box-amber { background: var(--warn-soft);      color: var(--warn);    }
+    .arch-box-purple{ background: rgba(167,139,250,.10); color: #a78bfa;        }
+    .arch-sub { font-size: 9px; margin-top: 5px; text-align: center; color: var(--txt-dim); font-family: var(--mono); }
+
+    .arch-arrow {
+      flex-shrink: 0;
+      padding: 0 6px;
+      display: flex;
+      align-items: center;
+      gap: 0;
+    }
+    .arch-arrow svg { color: var(--txt-dim); }
+
+    .arch-tags { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--outline); }
+    .arch-tag {
+      font-size: 10px;
+      padding: 3px 9px;
+      border-radius: 20px;
+      font-weight: 500;
+    }
+
+    /* ── EVENT LOG TABLE ─────────────────────── */
+    .log-wrap {
+      max-height: 260px;
+      overflow-y: auto;
+      border-radius: var(--radius-md);
+      margin-top: 2px;
+    }
+    .log-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11.5px;
+      table-layout: fixed;
+    }
+    .log-table thead th {
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: var(--txt-dim);
+      padding: 8px 10px;
+      text-align: left;
+      background: var(--bg-low);
+      position: sticky;
+      top: 0;
+      z-index: 2;
+    }
+    .log-table tbody td {
+      padding: 8px 10px;
+      color: var(--txt);
+      border-bottom: 1px solid rgba(255,255,255,.03);
+      vertical-align: middle;
+    }
+    .log-table tbody tr:last-child td { border-bottom: none; }
+    .log-table tbody tr {
+      transition: background var(--trans);
+    }
+    .log-table tbody tr:hover { background: var(--surface-hi); }
+    .log-table tbody tr.row-intrude { background: rgba(255,84,76,.04); }
+    .log-table tbody tr.row-intrude:hover { background: rgba(255,84,76,.08); }
+
+    /* ── ANALYTICS PAGE ─────────────────────── */
+    .analytics-kpi {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    .stat-card {
+      background: var(--surface);
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--outline);
+      padding: 16px;
+    }
+    .stat-label { font-size: 10px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--txt-dim); margin-bottom: 6px; }
+    .stat-val   { font-size: 24px; font-weight: 700; color: var(--txt); letter-spacing: -.02em; }
+    .stat-sub   { font-size: 11px; color: var(--txt-dim); margin-top: 4px; }
+    .stat-bar   { height: 4px; border-radius: 4px; background: var(--surface-hh); margin-top: 10px; overflow: hidden; }
+    .stat-bar-fill { height: 100%; border-radius: 4px; transition: width 1s ease; }
+
+    /* ── LIVE SENSORS PAGE ──────────────────── */
+    .live-sensor-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 14px;
+      align-items: start;
+    }
+    .live-sensor-card {
+      background: var(--surface);
+      border: 1px solid var(--outline);
+      border-radius: var(--radius-lg);
+      padding: 14px;
+      position: relative;
+      overflow: hidden;
+      transition: all var(--trans);
+    }
+    .live-sensor-card:hover { box-shadow: var(--shadow); }
+    .ls-icon { width: 36px; height: 36px; border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center; margin-bottom: 8px; }
+    .ls-name { font-size: 13px; font-weight: 600; color: var(--txt); margin-bottom: 2px; }
+    .ls-val  { font-size: 20px; font-weight: 700; letter-spacing: -.02em; margin-bottom: 2px; font-family: var(--mono); }
+    .ls-desc { font-size: 10px; color: var(--txt-dim); }
+    .ls-spark {
+      display: block;
+      width: 100% !important;
+      height: 34px !important;
+      max-height: 34px;
+      margin-top: 8px;
+    }
+    .ls-state { position: absolute; top: 10px; right: 10px; }
+
+    /* Keep the full Live Sensors panel visible on one desktop screen */
+    #page-sensors.active {
+      min-height: calc(100vh - 56px - 40px);
+      display: flex;
+      flex-direction: column;
+    }
+    #page-sensors .section-header {
+      margin-bottom: 10px;
+      flex-shrink: 0;
+    }
+    #page-sensors .live-sensor-grid {
+      flex: 1;
+      min-height: 0;
+      gap: 10px;
+      grid-auto-rows: minmax(0, 1fr);
+    }
+    #page-sensors .live-sensor-card {
+      height: 100%;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+    }
+    #page-sensors .ls-spark {
+      margin-top: auto;
+    }
+
+    /* ── SETTINGS PAGE ──────────────────────── */
+    .settings-section { margin-bottom: 24px; }
+    .settings-title { font-size: 14px; font-weight: 600; color: var(--txt); margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+    .setting-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 14px;
+      background: var(--surface);
+      border-radius: var(--radius-md);
+      border: 1px solid var(--outline);
+      margin-bottom: 6px;
+    }
+    .setting-label  { font-size: 12px; font-weight: 500; color: var(--txt); }
+    .setting-sub    { font-size: 10px; color: var(--txt-dim); margin-top: 2px; }
+    /* toggle */
+    .toggle { position: relative; width: 36px; height: 20px; flex-shrink: 0; }
+    .toggle input { opacity: 0; width: 0; height: 0; }
+    .toggle-slider {
+      position: absolute; inset: 0;
+      background: var(--surface-hh);
+      border-radius: 20px;
+      cursor: pointer;
+      transition: background var(--trans);
+    }
+    .toggle-slider::before {
+      content: '';
+      position: absolute;
+      width: 14px; height: 14px;
+      left: 3px; top: 3px;
+      border-radius: 50%;
+      background: var(--txt-dim);
+      transition: all var(--trans);
+    }
+    .toggle input:checked + .toggle-slider { background: var(--primary-dp); }
+    .toggle input:checked + .toggle-slider::before { transform: translateX(16px); background: #fff; }
+
+    /* ── API STATUS PAGE ─────────────────────── */
+    .api-endpoint {
+      background: var(--surface);
+      border: 1px solid var(--outline);
+      border-radius: var(--radius-md);
+      padding: 14px;
+      margin-bottom: 8px;
+    }
+    .api-method { font-size: 10px; font-weight: 700; letter-spacing: .05em; padding: 2px 8px; border-radius: 4px; margin-right: 8px; }
+    .m-get  { background: rgba(104,219,174,.15); color: var(--primary); }
+    .m-post { background: var(--info-soft);      color: var(--info);    }
+    .api-path { font-family: var(--mono); font-size: 12px; color: var(--txt); }
+    .api-desc { font-size: 11px; color: var(--txt-dim); margin-top: 5px; }
+    .api-resp {
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--txt-sec);
+      background: var(--bg-low);
+      border-radius: var(--radius-sm);
+      padding: 8px 10px;
+      margin-top: 8px;
+      overflow-x: auto;
+      white-space: pre;
+      border: 1px solid var(--outline);
+    }
+
+    /* ── MODAL ──────────────────────────────── */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.6);
+      backdrop-filter: blur(6px);
+      z-index: 999;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal {
+      background: var(--surface-hh);
+      border: 1px solid var(--outline);
+      border-radius: var(--radius-lg);
+      padding: 24px;
+      max-width: 420px;
+      width: 90%;
+      box-shadow: var(--shadow);
+      animation: modal-in .25s ease;
+    }
+    @keyframes modal-in { from { opacity:0; transform:scale(.94); } to { opacity:1; transform:scale(1); } }
+    .modal-title { font-size: 16px; font-weight: 700; color: var(--danger); margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
+    .modal-body  { font-size: 12px; color: var(--txt-sec); line-height: 1.6; }
+    .modal-footer { display: flex; gap: 8px; margin-top: 18px; justify-content: flex-end; }
+    .modal-btn {
+      font-size: 12px; font-weight: 600;
+      font-family: var(--font);
+      padding: 8px 16px;
+      border-radius: var(--radius-sm);
+      border: none;
+      cursor: pointer;
+      transition: all var(--trans);
+    }
+    .modal-btn.primary { background: var(--primary-dp); color: #fff; }
+    .modal-btn.primary:hover { background: var(--primary); color: #003827; }
+    .modal-btn.ghost { background: var(--surface-top); color: var(--txt-sec); }
+    .modal-btn.ghost:hover { background: var(--surface-bright); color: var(--txt); }
+
+    /* ── TOAST NOTIFICATION ─────────────────── */
+    .toast-stack {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      display: flex;
+      flex-direction: column-reverse;
+      gap: 8px;
+      z-index: 9999;
+    }
+    .toast {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      background: var(--surface-top);
+      border: 1px solid var(--outline);
+      border-radius: var(--radius-md);
+      padding: 12px 14px;
+      min-width: 280px;
+      max-width: 360px;
+      box-shadow: var(--shadow);
+      animation: toast-in .3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+    @keyframes toast-in { from { opacity:0; transform:translateX(20px); } to { opacity:1; transform:none; } }
+    .toast::after {
+      content: '';
+      position: absolute;
+      bottom: 0; left: 0;
+      height: 2px;
+      background: var(--toast-color, var(--primary));
+      animation: toast-bar 4s linear forwards;
+    }
+    @keyframes toast-bar { from { width: 100%; } to { width: 0%; } }
+    .toast-icon { width: 18px; height: 18px; flex-shrink: 0; margin-top: 1px; }
+    .toast-content { flex: 1; }
+    .toast-title   { font-size: 12px; font-weight: 600; color: var(--txt); }
+    .toast-msg     { font-size: 11px; color: var(--txt-dim); margin-top: 3px; }
+
+    /* ── RESPONSIVE ─────────────────────────── */
+    @media (max-width: 900px) {
+      .sidebar { width: 60px; }
+      .sb-brand-name, .sb-brand-sub, .sb-link span.link-text, .sb-section,
+      .sb-footer .user-name, .sb-footer .user-role, .sb-link .badge { display: none; }
+      .sb-logo { justify-content: center; padding: 14px 0; }
+      .sb-link { justify-content: center; margin: 1px 4px; padding: 9px; }
+      .sb-footer { padding: 10px 0; justify-content: center; }
+    }
+    @media (max-width: 700px) {
+      :root { --sidebar-w: 0px; }
+      .app { display: block; }
+      .sidebar {
+        display: flex;
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        top: auto;
+        width: 100%;
+        height: auto;
+        min-height: 64px;
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-around;
+        padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
+        border-right: none;
+        border-top: 1px solid var(--outline);
+        overflow-x: auto;
+        overflow-y: hidden;
+        z-index: 120;
+      }
+      .sb-logo, .sb-section, .sb-footer { display: none; }
+      .sb-nav {
+        display: flex;
+        width: 100%;
+        align-items: center;
+        justify-content: space-around;
+        gap: 6px;
+      }
+      .sb-link {
+        margin: 0;
+        padding: 10px;
+        min-width: 44px;
+        justify-content: center;
+        border-radius: 12px;
+      }
+      .sb-link.active::before { display: none; }
+      .main {
+        width: 100%;
+        min-height: 100vh;
+        padding-bottom: 84px;
+      }
+      .topbar {
+        height: auto;
+        padding: 12px 14px;
+        align-items: flex-start;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+      .tb-left, .tb-right {
+        width: 100%;
+        min-width: 0;
+        flex-wrap: wrap;
+      }
+      .tb-left { gap: 8px; }
+      .tb-right {
+        justify-content: space-between;
+        gap: 8px;
+      }
+      .tb-title {
+        font-size: 18px;
+        line-height: 1.15;
+        overflow-wrap: anywhere;
+      }
+      .tb-sub {
+        font-size: 9px;
+        line-height: 1.4;
+        white-space: normal;
+        overflow-wrap: anywhere;
+      }
+      .live-dot, .alert-badge {
+        max-width: 100%;
+        white-space: normal;
+      }
+      .refresh-select, .tb-clock {
+        flex: 1 1 0;
+        min-width: 0;
+      }
+      .tb-btn {
+        flex: 0 0 32px;
+      }
+      .content {
+        padding: 14px 12px 24px;
+      }
+      .section-header {
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+      .section-title {
+        min-width: 0;
+        overflow-wrap: anywhere;
+      }
+      .card, .kpi-card, .stat-card, .live-sensor-card {
+        min-width: 0;
+      }
+      .kpi-grid { grid-template-columns: 1fr 1fr; }
+      .grid-2-1, .grid-3, .grid-2 { grid-template-columns: 1fr; }
+      .live-sensor-grid { grid-template-columns: 1fr; }
+      .sensor-grid { grid-template-columns: 1fr; }
+      .sim-bar {
+        padding: 12px;
+        gap: 8px;
+      }
+      .sim-rate {
+        margin-left: 0;
+        width: 100%;
+        justify-content: space-between;
+      }
+      .sim-range {
+        width: 100%;
+        max-width: 140px;
+      }
+      .api-url {
+        width: 100%;
+        max-width: 100%;
+      }
+      .log-wrap {
+        overflow-x: auto;
+      }
+      .log-table {
+        min-width: 620px;
+      }
+      #page-sensors.active {
+        min-height: auto;
+      }
+    }
+    @media (max-width: 480px) {
+      .topbar {
+        padding: 10px 10px 12px;
+      }
+      .content {
+        padding: 12px 10px 20px;
+      }
+      .kpi-grid {
+        grid-template-columns: 1fr;
+      }
+      .kpi-card {
+        padding: 16px;
+      }
+      .kpi-value {
+        font-size: 26px;
+      }
+      .sim-btn {
+        width: 100%;
+        justify-content: center;
+      }
+      .tb-title {
+        font-size: 16px;
+      }
+      .tb-sub {
+        font-size: 8.5px;
+      }
+    }
+
+    /* ── MISC UTILITIES ─────────────────────── */
+    .flex-center { display: flex; align-items: center; justify-content: center; }
+    .flex-between { display: flex; align-items: center; justify-content: space-between; }
+    .mb4 { margin-bottom: 4px; }
+    .mb8 { margin-bottom: 8px; }
+    .mb14 { margin-bottom: 14px; }
+    .mb20 { margin-bottom: 20px; }
+    .text-mono { font-family: var(--mono); }
+    .text-dim   { color: var(--txt-dim); }
+    .text-sec   { color: var(--txt-sec); }
+    .text-cyan  { color: #22d3ee; }
+    .text-green { color: var(--primary); }
+    .text-red   { color: var(--danger); }
+    .text-amber { color: var(--warn); }
+    .text-blue  { color: var(--info); }
+    .text-info  { color: var(--info); }
+    .gap6 { gap: 6px; }
+    .hr { height: 1px; background: var(--outline); border: none; margin: 14px 0; }
+  </style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ══════════════════ SIDEBAR ══════════════════ -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sb-logo">
+      <div class="sb-logo-icon">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+          <path d="M9 1.5L2 5.25V9.75C2 13.5 5.1 17.1 9 18C12.9 17.1 16 13.5 16 9.75V5.25L9 1.5Z" fill="white" opacity=".9"/>
+          <path d="M6 9.5L8 11.5L12 7.5" stroke="#003827" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <div>
+        <div class="sb-brand-name">ShieldHome</div>
+        <div class="sb-brand-sub">IoT Security</div>
+      </div>
+    </div>
+
+    <div class="sb-section">Monitor</div>
+    <a class="sb-link active" id="nav-dashboard" onclick="showPage('dashboard')">
+      <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.4">
+        <rect x="1" y="1" width="5.5" height="5.5" rx="1.5"/>
+        <rect x="8.5" y="1" width="5.5" height="5.5" rx="1.5" opacity=".5"/>
+        <rect x="1" y="8.5" width="5.5" height="5.5" rx="1.5" opacity=".5"/>
+        <rect x="8.5" y="8.5" width="5.5" height="5.5" rx="1.5" opacity=".5"/>
+      </svg>
+      <span class="link-text">Dashboard</span>
+    </a>
+    <a class="sb-link" id="nav-sensors" onclick="showPage('sensors')">
+      <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.4">
+        <circle cx="7.5" cy="7.5" r="2.5"/>
+        <circle cx="7.5" cy="7.5" r="5.5" stroke-dasharray="2 2"/>
+        <path d="M7.5 2V1M7.5 14v-1M2 7.5H1M14 7.5h-1" stroke-linecap="round"/>
+      </svg>
+      <span class="link-text">Live Sensors</span>
+    </a>
+    <a class="sb-link" id="nav-analytics" onclick="showPage('analytics')">
+      <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.4">
+        <path d="M1.5 11.5L5 7.5L8.5 9L13 3.5" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M1.5 13.5h12" stroke-linecap="round"/>
+      </svg>
+      <span class="link-text">Analytics</span>
+    </a>
+
+    <div class="sb-section">System</div>
+    <a class="sb-link" id="nav-apistatus" onclick="showPage('apistatus')">
+      <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.4">
+        <rect x="1.5" y="3.5" width="12" height="8" rx="1.5"/>
+        <path d="M5 11.5v2M10 11.5v2M3.5 13.5h8" stroke-linecap="round"/>
+        <path d="M4.5 7h2M8.5 7h2" stroke-linecap="round"/>
+      </svg>
+      <span class="link-text">API Status</span>
+    </a>
+    <a class="sb-link" id="nav-eventlog" onclick="showPage('eventlog')">
+      <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.4">
+        <path d="M2.5 4.5h10M2.5 7.5h10M2.5 10.5H8" stroke-linecap="round"/>
+      </svg>
+      <span class="link-text">Event Log</span>
+      <span class="badge" id="sb-badge">0</span>
+    </a>
+    <a class="sb-link" id="nav-settings" onclick="showPage('settings')">
+      <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.4">
+        <circle cx="7.5" cy="7.5" r="2"/>
+        <path d="M7.5 1.5v1.5M7.5 12v1.5M1.5 7.5H3M12 7.5h1.5M3 3l1 1M11 11l1 1M3 12l1-1M11 4l1-1" stroke-linecap="round"/>
+      </svg>
+      <span class="link-text">Settings</span>
+    </a>
+
+    <div class="sb-footer">
+      <div class="user-pill">
+        <div class="user-avatar">AD</div>
+        <div>
+          <div class="user-name">admin</div>
+          <div class="user-role">Administrator</div>
+        </div>
+      </div>
+      <a href="/logout" class="logout-btn" onclick="logout(event)">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M5.5 13H3c-.6 0-1-.4-1-1V2c0-.6.4-1 1-1h2.5M10 3.5l3.5 3.5-3.5 3.5M13 7H6" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        Log Out
+      </a>
+    </div>
+  </aside>
+
+  <!-- ══════════════════ MAIN ══════════════════ -->
+  <div class="main">
+
+    <!-- TOP BAR -->
+    <header class="topbar">
+      <div class="tb-left">
+        <div>
+          <div class="tb-title" id="topbar-title">Live Dashboard</div>
+          <div class="tb-sub">Flask API · JSON Storage · ESP32 / Python Simulator</div>
+        </div>
+        <span class="live-dot" id="sys-status-badge">System Online</span>
+      </div>
+      <div class="tb-right">
+        <div style="display:flex;align-items:center;gap:5px;">
+          <span style="font-size:10px;color:var(--txt-dim);">Refresh</span>
+          <select class="refresh-select" id="refresh-select">
+            <option value="2000">2s</option>
+            <option value="5000" selected>5s</option>
+            <option value="10000">10s</option>
+            <option value="30000">30s</option>
+          </select>
+        </div>
+        <span class="tb-clock" id="clock">--:--:--</span>
+        <button class="tb-btn" title="Notifications" onclick="showToast('info','No new alerts','All systems nominal',3000)">
+          <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.4">
+            <path d="M7.5 1.5A4 4 0 0 0 3.5 5.5V9l-1.5 2h11L11.5 9V5.5A4 4 0 0 0 7.5 1.5Z" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M6 11.5a1.5 1.5 0 0 0 3 0" stroke-linecap="round"/>
+          </svg>
+        </button>
+        <button class="tb-btn" title="Toggle full screen" onclick="toggleFullscreen()">
+          <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.4">
+            <path d="M1.5 5.5V2h3.5M10 2h3.5v3.5M13.5 10v3.5H10M5.5 13.5H2V10" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- ═══ CONTENT ═══ -->
+    <div class="content">
+
+      <!-- ═══════════════════════════
+           PAGE: DASHBOARD
+           ═══════════════════════════ -->
+      <div class="page-view active" id="page-dashboard">
+
+        <!-- Simulator bar -->
+        <div class="sim-bar">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3" style="color:var(--primary);flex-shrink:0">
+            <circle cx="7" cy="7" r="5.5"/>
+            <path d="M5.5 5.5L9 7l-3.5 1.5V5.5z" fill="currentColor" stroke="none"/>
+          </svg>
+          <span class="sim-label">Sim Control</span>
+          <div class="sim-sep"></div>
+
+          <button class="sim-btn run-active" id="btn-run" onclick="setMode('run')">
+            <svg width="11" height="11" viewBox="0 0 11 11" fill="currentColor"><polygon points="2,1 10,5.5 2,10"/></svg>
+            Running
+          </button>
+          <button class="sim-btn" id="btn-intrude" onclick="triggerIntrusion()">
+            <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5.5 2v3.5l2 1.5" stroke-linecap="round"/><circle cx="5.5" cy="5.5" r="4.5"/></svg>
+            Trigger Intrusion
+          </button>
+          <button class="sim-btn" id="btn-pause" onclick="setMode('pause')">
+            <svg width="11" height="11" viewBox="0 0 11 11" fill="currentColor"><rect x="2" y="2" width="2.5" height="7" rx="1"/><rect x="6.5" y="2" width="2.5" height="7" rx="1"/></svg>
+            Pause
+          </button>
+
+          <div class="sim-sep"></div>
+          <div class="sim-rate">
+            <span class="sim-rate-label">Events/min</span>
+            <input type="range" min="2" max="20" value="8" step="1" class="sim-range" id="rate-slider" oninput="document.getElementById('rate-out').textContent=this.value; if(running)startSim();">
+            <span class="sim-rate-val" id="rate-out">8</span>
+          </div>
+
+          <div class="api-url" id="api-url">http://localhost:5000/api/events</div>
+        </div>
+
+        <!-- KPI Row -->
+        <div class="kpi-grid">
+          <!-- Total Events -->
+          <div class="kpi-card kpi-cyan">
+            <div class="kpi-icon-wrap kpi-icon-cyan">
+              <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5">
+                <rect x="2" y="2" width="6" height="6" rx="1.5"/>
+                <rect x="10" y="2" width="6" height="6" rx="1.5"/>
+                <rect x="2" y="10" width="6" height="6" rx="1.5"/>
+                <rect x="10" y="10" width="6" height="6" rx="1.5"/>
+              </svg>
+            </div>
+            <div class="kpi-label">Total Events</div>
+            <div class="kpi-value text-cyan" id="kpi-total">247</div>
+            <div class="kpi-delta up" id="kpi-total-d">
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor"><path d="M5 2l4 6H1z"/></svg>
+              +12 today
+            </div>
+            <div class="kpi-glow"></div>
+          </div>
+          <!-- Intrusions -->
+          <div class="kpi-card kpi-red">
+            <div class="kpi-icon-wrap kpi-icon-red">
+              <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M9 2L2 5.5v4C2 13.5 5.2 16.5 9 17.5C12.8 16.5 16 13.5 16 9.5v-4L9 2Z"/>
+                <path d="M9 6.5v3.5M9 11.5v1" stroke-linecap="round"/>
+              </svg>
+            </div>
+            <div class="kpi-label">Intrusions</div>
+            <div class="kpi-value text-red" id="kpi-int">38</div>
+            <div class="kpi-delta up" id="kpi-int-d">
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor"><path d="M5 2l4 6H1z"/></svg>
+              +3 this hour
+            </div>
+            <div class="kpi-glow"></div>
+          </div>
+          <!-- Safe Events -->
+          <div class="kpi-card kpi-green">
+            <div class="kpi-icon-wrap kpi-icon-green">
+              <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5">
+                <circle cx="9" cy="9" r="7"/>
+                <path d="M6 9.5l2.5 2.5 4-5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <div class="kpi-label">Safe Events</div>
+            <div class="kpi-value text-green" id="kpi-safe">209</div>
+            <div class="kpi-delta dn" id="kpi-safe-d">
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor"><path d="M5 8L1 2h8z"/></svg>
+              84.6% of total
+            </div>
+            <div class="kpi-glow"></div>
+          </div>
+          <!-- Alert Rate -->
+          <div class="kpi-card kpi-amber">
+            <div class="kpi-icon-wrap kpi-icon-amber">
+              <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M9 2L1.5 15.5h15L9 2Z" stroke-linejoin="round"/>
+                <path d="M9 8v4M9 13.5v1" stroke-linecap="round"/>
+              </svg>
+            </div>
+            <div class="kpi-label">Alert Rate</div>
+            <div class="kpi-value text-amber" id="kpi-rate">15.4%</div>
+            <div class="kpi-delta up">
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor"><path d="M5 2l4 6H1z"/></svg>
+              vs 11.2% yesterday
+            </div>
+            <div class="kpi-glow"></div>
+          </div>
+          <!-- Network Alerts -->
+          <div class="kpi-card kpi-blue">
+            <div class="kpi-icon-wrap kpi-icon-blue">
+              <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M3 8.5a6 6 0 0 1 12 0" stroke-linecap="round"/>
+                <path d="M5.5 11a3 3 0 0 1 7 0" stroke-linecap="round"/>
+                <circle cx="9" cy="14" r="1" fill="currentColor" stroke="none"/>
+              </svg>
+            </div>
+            <div class="kpi-label">Network Alerts</div>
+            <div class="kpi-value text-blue" id="kpi-network">0</div>
+            <div class="kpi-delta dn" id="kpi-network-d">
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor"><path d="M5 8L1 2h8z"/></svg>
+              0 today
+            </div>
+            <div class="kpi-glow"></div>
+          </div>
+        </div>
+
+        <!-- Charts Row 1: Trend + Donut -->
+        <div class="grid-2-1 mb14">
+          <div class="card accent-red">
+            <div class="card-header">
+              <div>
+                <div class="card-title">Intrusion Trend — Last 24 Hours</div>
+                <div class="card-sub">Live rolling window</div>
+              </div>
+              <span class="badge badge-green">
+                <svg width="8" height="8" viewBox="0 0 8 8" fill="currentColor" style="margin-right:3px"><circle cx="4" cy="4" r="3"/></svg>
+                Live
+              </span>
+            </div>
+            <div class="chart-wrap chart-h180">
+              <canvas id="trendChart"></canvas>
+            </div>
+            <div class="chart-legend">
+              <div class="leg-item">
+                <span class="leg-line" style="background:#EF4444;"></span>
+                Intrusions
+              </div>
+              <div class="leg-item">
+                <span class="leg-line" style="background:var(--primary);border-top:2px dashed var(--primary);height:0;"></span>
+                Safe Events
+              </div>
+              <div class="leg-item" style="margin-left:auto;">
+                <span style="font-family:var(--mono);font-size:10px;color:var(--txt-dim);">Updated: <span id="trend-ts">--:--</span></span>
+              </div>
+            </div>
+          </div>
+
+          <div class="card accent-blue">
+            <div class="card-header">
+              <div>
+                <div class="card-title">Event Distribution</div>
+                <div class="card-sub">Today</div>
+              </div>
+              <span class="badge badge-amber">Today</span>
+            </div>
+            <div class="chart-wrap chart-h150">
+              <canvas id="donutChart"></canvas>
+            </div>
+            <div class="chart-legend" style="margin-top:12px;">
+              <div class="leg-item"><span class="leg-dot" style="background:#EF4444;"></span>Intrusion <strong id="donut-int-pct" style="color:var(--txt)">15%</strong></div>
+              <div class="leg-item"><span class="leg-dot" style="background:var(--primary);"></span>Safe <strong id="donut-safe-pct" style="color:var(--txt)">78%</strong></div>
+              <div class="leg-item"><span class="leg-dot" style="background:var(--warn);"></span>Warn <strong id="donut-warn-pct" style="color:var(--txt)">7%</strong></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Charts Row 2: Hourly + Sensors + Services -->
+        <div class="grid-3 mb14">
+          <div class="card accent-green">
+            <div class="card-header">
+              <div class="card-title">Hourly Activity</div>
+              <span class="badge badge-blue">24h</span>
+            </div>
+            <div class="chart-wrap chart-h130">
+              <canvas id="hourlyChart"></canvas>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">Sensor Readings</div>
+              <span class="badge badge-green">Live</span>
+            </div>
+            <div class="sensor-grid">
+              <!-- PIR -->
+              <div class="sensor-item">
+                <div class="sensor-icon si-green">
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4">
+                    <circle cx="8" cy="8" r="3"/>
+                    <circle cx="8" cy="8" r="6" stroke-dasharray="2 2" opacity=".4"/>
+                  </svg>
+                </div>
+                <div>
+                  <div class="sensor-name">PIR</div>
+                  <div class="sensor-val" id="pir-v">HIGH</div>
+                </div>
+                <div class="sensor-state"><span class="badge badge-red" id="pir-s">Active</span></div>
+              </div>
+              <!-- Ultrasonic -->
+              <div class="sensor-item">
+                <div class="sensor-icon si-blue">
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4">
+                    <path d="M3 8h2.5M10.5 8H13M5.5 5l2 3M5.5 11l2-3M10.5 5l-2 3M10.5 11l-2-3" stroke-linecap="round"/>
+                  </svg>
+                </div>
+                <div>
+                  <div class="sensor-name">Ultrasonic</div>
+                  <div class="sensor-val" id="us-v">9 cm</div>
+                </div>
+                <div class="sensor-state"><span class="badge badge-red" id="us-s">Alert</span></div>
+              </div>
+              <!-- LDR -->
+              <div class="sensor-item">
+                <div class="sensor-icon si-amber">
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4">
+                    <circle cx="8" cy="8" r="3"/>
+                    <path d="M8 2v1.5M8 12.5V14M2 8h1.5M12.5 8H14M4 4l1 1M11 11l1 1M4 12l1-1M11 5l1-1" stroke-linecap="round"/>
+                  </svg>
+                </div>
+                <div>
+                  <div class="sensor-name">LDR</div>
+                  <div class="sensor-val" id="ldr-v">680</div>
+                </div>
+                <div class="sensor-state"><span class="badge badge-amber" id="ldr-s">Dim</span></div>
+              </div>
+              <!-- Touch -->
+              <div class="sensor-item">
+                <div class="sensor-icon si-purple">
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4">
+                    <path d="M8 3.5v5M6.5 7L8 9.5l1.5-2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M5 12.5C3.5 11 3 9.5 3 8c0-2.8 2.2-5 5-5s5 2.2 5 5c0 1.5-.5 3-2 4.5" stroke-linecap="round"/>
+                  </svg>
+                </div>
+                <div>
+                  <div class="sensor-name">Touch</div>
+                  <div class="sensor-val" id="touch-v">Idle</div>
+                </div>
+                <div class="sensor-state"><span class="badge badge-green" id="touch-s">Clear</span></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">Backend Services</div>
+              <span class="badge badge-green">Operational</span>
+            </div>
+            <div>
+              <div class="svc-item">
+                <div class="svc-name">
+                  <span class="svc-dot green"></span>
+                  <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.3" style="opacity:.6"><rect x="1" y="3.5" width="11" height="6" rx="1.5"/></svg>
+                  Flask API
+                </div>
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <span class="svc-uptime">99.8% uptime</span>
+                  <span class="badge badge-green">Running</span>
+                </div>
+              </div>
+              <div class="svc-item">
+                <div class="svc-name">
+                  <span class="svc-dot green"></span>
+                  <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.3" style="opacity:.6"><path d="M2 2h9v9H2z" rx="1"/><path d="M4 6h5M4 8h3" stroke-linecap="round"/></svg>
+                  app.py
+                </div>
+                <span class="badge badge-green">Active</span>
+              </div>
+              <div class="svc-item">
+                <div class="svc-name">
+                  <span class="svc-dot green"></span>
+                  <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.3" style="opacity:.6"><circle cx="6.5" cy="6.5" r="5"/><path d="M4 6.5l2 2 3.5-3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  detector.py
+                </div>
+                <span class="badge badge-green">Active</span>
+              </div>
+              <div class="svc-item">
+                <div class="svc-name">
+                  <span class="svc-dot amber" id="ngrok-dot"></span>
+                  <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.3" style="opacity:.6"><path d="M2 6.5Q3.5 2 6.5 2Q9.5 2 11 6.5Q9.5 11 6.5 11Q3.5 11 2 6.5Z"/><path d="M4 6.5h5" stroke-linecap="round"/></svg>
+                  ngrok tunnel
+                </div>
+                <span class="badge badge-blue" id="ngrok-status">Standby</span>
+              </div>
+              <div class="svc-item">
+                <div class="svc-name">
+                  <span class="svc-dot green"></span>
+                  <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.3" style="opacity:.6"><path d="M2 3.5h9M2 6.5h9M2 9.5h6" stroke-linecap="round"/></svg>
+                  storage.py
+                </div>
+                <span class="badge badge-green">Writing</span>
+              </div>
+              <div class="svc-item">
+                <div class="svc-name">
+                  <span class="svc-dot green"></span>
+                  <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.3" style="opacity:.6"><path d="M2 9L4.5 6l2.5 2L10 4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  sensor_sim.py
+                </div>
+                <span class="badge badge-green">Simulating</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- System Architecture -->
+        <div class="card mb14">
+          <div class="card-header">
+            <div>
+              <div class="card-title">System Architecture — Data Pipeline</div>
+              <div class="card-sub">End-to-end IoT data flow from sensors to dashboard</div>
+            </div>
+          </div>
+          <div class="arch-pipe">
+            <div class="arch-node-wrap">
+              <div class="arch-node">
+                <div class="arch-box arch-box-green">
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3" style="margin-bottom:4px"><rect x="1.5" y="3" width="11" height="8" rx="1.5"/><path d="M4.5 11v2M9.5 11v2M3 13h8" stroke-linecap="round"/></svg>
+                  ESP32 / Wokwi
+                </div>
+                <div class="arch-sub">sketch.ino · diagram.json</div>
+              </div>
+              <div class="arch-arrow">
+                <svg width="28" height="14" viewBox="0 0 28 14" fill="none"><path d="M2 7h22M20 3l6 4-6 4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </div>
+            </div>
+            <div class="arch-node-wrap">
+              <div class="arch-node">
+                <div class="arch-box arch-box-purple">
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3" style="margin-bottom:4px"><circle cx="7" cy="7" r="5.5"/><path d="M4 7h2.5M7.5 7H10M7 4.5v5" opacity=".5" stroke-linecap="round"/></svg>
+                  ngrok
+                </div>
+                <div class="arch-sub">public HTTPS URL</div>
+              </div>
+              <div class="arch-arrow">
+                <svg width="28" height="14" viewBox="0 0 28 14" fill="none"><path d="M2 7h22M20 3l6 4-6 4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </div>
+            </div>
+            <div class="arch-node-wrap">
+              <div class="arch-node">
+                <div class="arch-box arch-box-blue">
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3" style="margin-bottom:4px"><path d="M2 4h10M2 7h10M2 10h6" stroke-linecap="round"/></svg>
+                  Flask API
+                </div>
+                <div class="arch-sub">app.py · detector.py</div>
+              </div>
+              <div class="arch-arrow">
+                <svg width="28" height="14" viewBox="0 0 28 14" fill="none"><path d="M2 7h22M20 3l6 4-6 4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </div>
+            </div>
+            <div class="arch-node-wrap">
+              <div class="arch-node">
+                <div class="arch-box arch-box-red">
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3" style="margin-bottom:4px"><rect x="1.5" y="2" width="11" height="10" rx="1.5"/><path d="M4.5 5h5M4.5 7.5h3" stroke-linecap="round"/></svg>
+                  JSON Storage
+                </div>
+                <div class="arch-sub">storage.py · events.json</div>
+              </div>
+              <div class="arch-arrow">
+                <svg width="28" height="14" viewBox="0 0 28 14" fill="none"><path d="M2 7h22M20 3l6 4-6 4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </div>
+            </div>
+            <div class="arch-node-wrap">
+              <div class="arch-node">
+                <div class="arch-box arch-box-amber">
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3" style="margin-bottom:4px"><path d="M1.5 10.5L5 6l3 2.5L12 3.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M1.5 12.5h11" stroke-linecap="round"/></svg>
+                  Dashboard
+                </div>
+                <div class="arch-sub">HTML · Chart.js · JS</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="arch-tags">
+            <span class="arch-tag badge-green">Python 3</span>
+            <span class="arch-tag badge-blue">Flask</span>
+            <span class="arch-tag badge-amber">Chart.js</span>
+            <span class="arch-tag" style="background:rgba(167,139,250,.1);color:#a78bfa;font-size:10px;padding:3px 9px;border-radius:20px;font-weight:500;">ESP32 C++</span>
+            <span class="arch-tag" style="background:rgba(251,191,36,.08);color:#fbbf24;font-size:10px;padding:3px 9px;border-radius:20px;font-weight:500;">ngrok</span>
+            <span class="arch-tag badge-red" style="font-size:10px;padding:3px 9px;border-radius:20px;font-weight:500;">Wokwi Sim</span>
+            <div style="margin-left:auto;font-size:10px;color:var(--txt-dim);">
+              Also: <code style="font-family:var(--mono)">sensor_simulator.py</code> runs in place of ESP32 for local dev
+            </div>
+          </div>
+        </div>
+
+        <!-- Event Log -->
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Event Log — /api/events</div>
+              <div class="card-sub">Real-time intrusion & sensor events</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span class="text-mono text-dim" style="font-size:10px;" id="log-count">12 entries</span>
+              <button class="sim-btn" onclick="exportLog()" style="padding:4px 10px;">
+                <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" stroke-width="1.4">
+                  <path d="M5.5 1v7M2.5 5.5l3 3 3-3" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M1 8v2h9V8" stroke-linecap="round"/>
+                </svg>
+                Export
+              </button>
+            </div>
+          </div>
+          <div class="log-wrap">
+            <table class="log-table" id="log-table">
+              <thead>
+                <tr>
+                  <th style="width:85px;">Timestamp</th>
+                  <th style="width:110px;">Source</th>
+                  <th style="width:80px;">Type</th>
+                  <th style="width:75px;">Distance</th>
+                  <th style="width:60px;">Image</th>
+                  <th>Notes</th>
+                </tr>
+              </thead>
+              <tbody id="log-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div><!-- /page-dashboard -->
+
+      <!-- ═══════════════════════════
+           PAGE: LIVE SENSORS
+           ═══════════════════════════ -->
+      <div class="page-view" id="page-sensors">
+        <div class="section-header mb14">
+          <div class="section-title">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="7" cy="7" r="5.5"/><circle cx="7" cy="7" r="2.5" fill="currentColor" opacity=".3"/></svg>
+            Live Sensor Monitor
+          </div>
+          <span class="live-dot">Streaming</span>
+        </div>
+        <div class="live-sensor-grid">
+          <!-- PIR -->
+          <div class="live-sensor-card" style="border-top:2px solid rgba(104,219,174,.4)">
+            <div class="ls-state"><span class="badge badge-red" id="ls-pir-s">Active</span></div>
+            <div class="ls-icon" style="background:rgba(104,219,174,.1)">
+              <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="var(--primary)" stroke-width="1.4">
+                <circle cx="11" cy="11" r="4"/>
+                <circle cx="11" cy="11" r="8" stroke-dasharray="3 2" opacity=".4"/>
+              </svg>
+            </div>
+            <div class="ls-name">PIR Motion Sensor</div>
+            <div class="ls-val text-green" id="ls-pir-v">HIGH</div>
+            <div class="ls-desc">Passive Infrared — detects motion via heat signature</div>
+            <canvas class="ls-spark" id="spark-pir"></canvas>
+          </div>
+          <!-- Ultrasonic -->
+          <div class="live-sensor-card" style="border-top:2px solid rgba(96,165,250,.4)">
+            <div class="ls-state"><span class="badge badge-red" id="ls-us-s">Alert</span></div>
+            <div class="ls-icon" style="background:var(--info-soft)">
+              <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="var(--info)" stroke-width="1.4">
+                <path d="M3 11h3M16 11h3M6.5 6l3 5M6.5 16l3-5M15.5 6l-3 5M15.5 16l-3-5" stroke-linecap="round"/>
+              </svg>
+            </div>
+            <div class="ls-name">Ultrasonic Distance</div>
+            <div class="ls-val text-info" id="ls-us-v">9 cm</div>
+            <div class="ls-desc">HC-SR04 — proximity sensing via sound</div>
+            <canvas class="ls-spark" id="spark-us"></canvas>
+          </div>
+          <!-- LDR -->
+          <div class="live-sensor-card" style="border-top:2px solid rgba(245,158,11,.4)">
+            <div class="ls-state"><span class="badge badge-amber" id="ls-ldr-s">Dim</span></div>
+            <div class="ls-icon" style="background:var(--warn-soft)">
+              <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="var(--warn)" stroke-width="1.4">
+                <circle cx="11" cy="11" r="4"/>
+                <path d="M11 3v2M11 17v2M3 11h2M17 11h2M5.5 5.5l1.5 1.5M15 15l1.5 1.5M5.5 16.5l1.5-1.5M15 7l1.5-1.5" stroke-linecap="round"/>
+              </svg>
+            </div>
+            <div class="ls-name">LDR Light Sensor</div>
+            <div class="ls-val text-amber" id="ls-ldr-v">680</div>
+            <div class="ls-desc">Light-Dependent Resistor — ambient light level (0–1023)</div>
+            <canvas class="ls-spark" id="spark-ldr"></canvas>
+          </div>
+          <!-- Touch -->
+          <div class="live-sensor-card" style="border-top:2px solid rgba(167,139,250,.4)">
+            <div class="ls-state"><span class="badge" style="background:rgba(167,139,250,.15);color:#a78bfa;border:1px solid rgba(167,139,250,.2);" id="ls-touch-s">Clear</span></div>
+            <div class="ls-icon" style="background:rgba(167,139,250,.1)">
+              <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="#a78bfa" stroke-width="1.4">
+                <path d="M11 5v7M9 10l2 3 2-3" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M7 16.5C5 15 4 13 4 11c0-3.9 3.1-7 7-7s7 3.1 7 7c0 2-1 4-3 5.5" stroke-linecap="round"/>
+              </svg>
+            </div>
+            <div class="ls-name">Capacitive Touch</div>
+            <div class="ls-val" style="color:#a78bfa" id="ls-touch-v">Idle</div>
+            <div class="ls-desc">Capacitive touch pad — physical contact detection</div>
+            <canvas class="ls-spark" id="spark-touch"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════
+           PAGE: ANALYTICS
+           ═══════════════════════════ -->
+      <div class="page-view" id="page-analytics">
+        <div class="section-header mb14">
+          <div class="section-title">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M1.5 10.5L5 7l3 2L12 3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Deep Analytics
+          </div>
+          <span class="badge badge-amber">Last 24h</span>
+        </div>
+
+        <div class="analytics-kpi">
+          <div class="stat-card">
+            <div class="stat-label">Detection Accuracy</div>
+            <div class="stat-val text-green">97.3%</div>
+            <div class="stat-sub">Based on confirmed events</div>
+            <div class="stat-bar"><div class="stat-bar-fill" style="width:97.3%;background:var(--primary);"></div></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Avg Response Time</div>
+            <div class="stat-val">1.2s</div>
+            <div class="stat-sub">From event ingestion to log</div>
+            <div class="stat-bar"><div class="stat-bar-fill" style="width:60%;background:var(--info);"></div></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">False Positive Rate</div>
+            <div class="stat-val text-amber">2.7%</div>
+            <div class="stat-sub">Rule-based anomaly baseline</div>
+            <div class="stat-bar"><div class="stat-bar-fill" style="width:2.7%;background:var(--warn);"></div></div>
+          </div>
+        </div>
+
+        <div class="grid-2 mb14">
+          <div class="card accent-red">
+            <div class="card-header">
+              <div class="card-title">Intrusion Events — 7 Days</div>
+              <span class="badge badge-red">Weekly</span>
+            </div>
+            <div class="chart-wrap chart-h180">
+              <canvas id="weeklyChart"></canvas>
+            </div>
+          </div>
+          <div class="card accent-amber">
+            <div class="card-header">
+              <div class="card-title">Combined Sensor Trend (All 4)</div>
+              <span class="badge badge-amber">Today</span>
+            </div>
+            <div class="chart-wrap chart-h180">
+              <canvas id="heatChart"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid-2 mb14">
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">Intrusion Source Breakdown</div>
+            </div>
+            <div class="chart-wrap chart-h180">
+              <canvas id="sourceChart"></canvas>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">System Uptime History</div>
+              <span class="badge badge-green">30 days</span>
+            </div>
+            <div class="chart-wrap chart-h180">
+              <canvas id="uptimeChart"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════
+           PAGE: EVENT LOG
+           ═══════════════════════════ -->
+      <div class="page-view" id="page-eventlog">
+        <div class="section-header mb14">
+          <div class="section-title">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M2 4.5h10M2 7.5h10M2 10.5H7" stroke-linecap="round"/></svg>
+            Full Event Log
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <select class="refresh-select" id="log-filter" onchange="filterLog()">
+              <option value="all">All Events</option>
+              <option value="0">Intrusions</option>
+              <option value="1">Safe</option>
+              <option value="2">Warnings</option>
+              <option value="3">System</option>
+              <option value="4">Network</option>
+            </select>
+            <button class="sim-btn" onclick="exportLog()">
+              <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M5.5 1v7M2.5 5.5l3 3 3-3" stroke-linecap="round" stroke-linejoin="round"/><path d="M1 8v2h9V8" stroke-linecap="round"/></svg>
+              Export CSV
+            </button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="log-wrap" style="max-height:none;max-height:calc(100vh - 240px);">
+            <table class="log-table" id="full-log-table">
+              <thead>
+                <tr>
+                  <th style="width:90px;">#</th>
+                  <th style="width:90px;">Timestamp</th>
+                  <th style="width:120px;">Source</th>
+                  <th style="width:85px;">Type</th>
+                  <th style="width:80px;">Distance</th>
+                  <th>Notes</th>
+                </tr>
+              </thead>
+              <tbody id="full-log-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════
+           PAGE: API STATUS
+           ═══════════════════════════ -->
+      <div class="page-view" id="page-apistatus">
+        <div class="section-header mb14">
+          <div class="section-title">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="1.5" y="3" width="11" height="8" rx="1.5"/><path d="M4.5 11v2M9.5 11v2M3 13h8" stroke-linecap="round"/></svg>
+            API Status & Endpoints
+          </div>
+          <span class="live-dot">Monitoring</span>
+        </div>
+
+        <div class="grid-3 mb14">
+          <div class="stat-card">
+            <div class="stat-label">API Base URL</div>
+            <div class="stat-val text-mono text-green" style="font-size:12px;margin-top:4px;" id="api-base">localhost:5000</div>
+            <div class="stat-sub">Flask development server</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Total Requests (session)</div>
+            <div class="stat-val" id="api-req-count">1,847</div>
+            <div class="stat-sub">POST /detect calls</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Average Latency</div>
+            <div class="stat-val text-green">12ms</div>
+            <div class="stat-sub">localhost round-trip</div>
+          </div>
+        </div>
+
+        <div class="grid-3 mb14">
+          <div class="stat-card">
+            <div class="stat-label">Network Alerts</div>
+            <div class="stat-val text-blue" id="api-network-count">0</div>
+            <div class="stat-sub">Connections and traffic bursts</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Recent Network Source</div>
+            <div class="stat-val text-mono" id="api-network-source">Network Monitor</div>
+            <div class="stat-sub">Host traffic metadata</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Network Endpoint</div>
+            <div class="stat-val text-mono text-green" style="font-size:12px;margin-top:4px;">/dashboard/api/network/latest</div>
+            <div class="stat-sub">Optional live snapshot</div>
+          </div>
+        </div>
+
+        <div class="card mb14">
+          <div class="card-header"><div class="card-title">Endpoints</div></div>
+
+          <div class="api-endpoint">
+            <div><span class="api-method m-post">POST</span><span class="api-path">/login</span></div>
+            <div class="api-desc">Authenticate with username and password. Returns success or 401.</div>
+            <div class="api-resp">{"username": "admin", "password": "1234"}  →  {"status": "success"}</div>
+          </div>
+
+          <div class="api-endpoint">
+            <div><span class="api-method m-post">POST</span><span class="api-path">/detect</span></div>
+            <div class="api-desc">Submit sensor readings. Runs detector.py logic. Saves event if intrusion detected.</div>
+            <div class="api-resp">{"pir": 1, "distance": 9, "ldr": 680, "touch": 0}  →  {"intrusion": true, "message": "Motion + proximity alert"}</div>
+          </div>
+
+          <div class="api-endpoint">
+            <div><span class="api-method m-get">GET</span><span class="api-path">/api/events</span></div>
+            <div class="api-desc">Returns all stored events from events.json sorted by timestamp descending.</div>
+            <div class="api-resp">[{"timestamp":"2026-04-15T22:14:07","intrusion":true,"message":"...","pir":1,"distance":9}]</div>
+          </div>
+
+          <div class="api-endpoint">
+            <div><span class="api-method m-get">GET</span><span class="api-path">/api/network/latest</span></div>
+            <div class="api-desc">Returns the latest network monitoring event collected from the host.</div>
+            <div class="api-resp">{"source":"Network Monitor","event_class":"network","message":"New network connection ..."}</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header"><div class="card-title">Live Health Check</div></div>
+          <div class="svc-item"><div class="svc-name"><span class="svc-dot green"></span>Flask Server (localhost:5000)</div><span class="badge badge-green">200 OK</span></div>
+          <div class="svc-item"><div class="svc-name"><span class="svc-dot green"></span>POST /detect — response time</div><span class="svc-uptime">avg 12ms</span></div>
+          <div class="svc-item"><div class="svc-name"><span class="svc-dot green"></span>events.json — write access</div><span class="badge badge-green">OK</span></div>
+          <div class="svc-item"><div class="svc-name"><span class="svc-dot amber"></span>ngrok tunnel — external</div><span class="badge badge-blue" id="ngrok-api-s">Standby</span></div>
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════
+           PAGE: SETTINGS
+           ═══════════════════════════ -->
+      <div class="page-view" id="page-settings">
+        <div class="section-header mb14">
+          <div class="section-title">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="7" cy="7" r="2"/><path d="M7 1v2M7 11v2M1 7h2M11 7h2M3 3l1 1M10 10l1 1M3 11l1-1M10 4l1-1" stroke-linecap="round"/></svg>
+            System Settings
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <div class="settings-title">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M8 2L1 5.5v4C1 13.5 4.2 16 8 17C11.8 16 15 13.5 15 9.5v-4L8 2Z"/></svg>
+            Detection Thresholds
+          </div>
+          <div class="setting-row">
+            <div><div class="setting-label">Ultrasonic Distance Threshold</div><div class="setting-sub">Trigger alert if object closer than this distance</div></div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <input type="range" min="5" max="50" value="15" class="sim-range" style="width:80px">
+              <span class="sim-rate-val text-mono">15 cm</span>
+            </div>
+          </div>
+          <div class="setting-row">
+            <div><div class="setting-label">LDR Low-Light Threshold</div><div class="setting-sub">Warn if ambient light falls below this value</div></div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <input type="range" min="100" max="900" value="600" class="sim-range" style="width:80px">
+              <span class="sim-rate-val text-mono">600</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <div class="settings-title">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M2 5.5h3L8 3l3 2.5h3v7H2z" stroke-linejoin="round"/><path d="M6 12.5V9h4v3.5" stroke-linecap="round"/></svg>
+            Notifications
+          </div>
+          <div class="setting-row">
+            <div><div class="setting-label">Intrusion Alert Toast</div><div class="setting-sub">Show popup notification on intrusion events</div></div>
+            <label class="toggle"><input type="checkbox" checked id="tog-toast"><span class="toggle-slider"></span></label>
+          </div>
+          <div class="setting-row">
+            <div><div class="setting-label">Sound Alert</div><div class="setting-sub">Play beep on critical intrusion detection</div></div>
+            <label class="toggle"><input type="checkbox" id="tog-sound"><span class="toggle-slider"></span></label>
+          </div>
+          <div class="setting-row">
+            <div><div class="setting-label">Auto-scroll Event Log</div><div class="setting-sub">Automatically scroll log to newest events</div></div>
+            <label class="toggle"><input type="checkbox" checked id="tog-scroll"><span class="toggle-slider"></span></label>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <div class="settings-title">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="1.5" y="3" width="13" height="10" rx="1.5"/><path d="M4.5 13v2M11.5 13v2M3 15h10" stroke-linecap="round"/></svg>
+            Display
+          </div>
+          <div class="setting-row">
+            <div><div class="setting-label">Compact Event Log</div><div class="setting-sub">Show more rows, reduce row padding</div></div>
+            <label class="toggle"><input type="checkbox" id="tog-compact"><span class="toggle-slider"></span></label>
+          </div>
+          <div class="setting-row">
+            <div><div class="setting-label">API Endpoint URL</div><div class="setting-sub">Backend URL for sensor data</div></div>
+            <span class="text-mono text-dim" style="font-size:11px;">localhost:5000</span>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /content -->
+  </div><!-- /main -->
+</div><!-- /app -->
+
+<!-- INTRUSION MODAL -->
+<div class="modal-overlay" id="intrusion-modal">
+  <div class="modal">
+    <div class="modal-title">
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10 2L1.5 6.5V11C1.5 15.5 5.2 19.5 10 20.5C14.8 19.5 18.5 15.5 18.5 11V6.5L10 2Z"/><path d="M10 7.5v4M10 13v1.5" stroke-linecap="round"/></svg>
+      ⚠ INTRUSION DETECTED
+    </div>
+    <div class="modal-body">
+      <p style="margin-bottom:8px;"><strong style="color:var(--txt)">Alert:</strong> Motion + proximity threat detected by PIR and Ultrasonic sensors.</p>
+      <div style="background:var(--bg-low);border-radius:var(--radius-sm);padding:10px;font-family:var(--mono);font-size:11px;color:var(--txt-sec);margin:10px 0;">
+        PIR: HIGH &nbsp;|&nbsp; Distance: <span id="modal-dist">9 cm</span> &nbsp;|&nbsp; Touch: Active
+      </div>
+      <p>Alarm triggered and event logged to <code style="font-family:var(--mono)">events.json</code>. Review the event log for details.</p>
+    </div>
+    <div class="modal-footer">
+      <button class="modal-btn ghost" onclick="closeModal()">Dismiss</button>
+      <button class="modal-btn primary" onclick="closeModal();showPage('eventlog')">View Log</button>
+    </div>
+  </div>
+</div>
+
+<!-- IMAGE MODAL -->
+<div class="modal-overlay" id="image-modal" style="z-index: 10000;">
+  <div class="modal" style="max-width: 600px;">
+    <div class="modal-title">
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 6l6-6 6 6 6-6v14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6z"/><circle cx="8" cy="10" r="2"/></svg>
+      Captured Image
+    </div>
+    <div class="modal-body" style="text-align: center;">
+      <img id="modal-image" src="" style="max-width: 100%; max-height: 400px; border-radius: var(--radius-sm);" />
+    </div>
+    <div class="modal-footer">
+      <button class="modal-btn ghost" onclick="closeImageModal()">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST STACK -->
+<div class="toast-stack" id="toast-stack"></div>
+
+<!-- ══════════════════ SCRIPTS ══════════════════ -->
+<script>
+/* ============================================================
+   AUTH GUARD - REMOVED
+   ============================================================ */
+   // Authentication is now handled server-side by Flask routes
+   // The /dashboard route has @require_auth_page decorator
+
+/* ============================================================
+   DESIGN TOKENS (mirrored from CSS for JS use)
+   ============================================================ */
+const C = {
+  primary:  '#68dbae',
+  danger:   '#EF4444',
+  warn:     '#F59E0B',
+  info:     '#60a5fa',
+  txt:      '#dfe2f1',
+  txtDim:   '#87948c',
+  surface:  '#1c1f2a',
+  grid:     'rgba(255,255,255,0.04)',
+};
+
+const chartDefaults = {
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: { legend: { display: false } },
+  animation: { duration: 400 },
+};
+
+Chart.defaults.font.family = "'Inter', system-ui, sans-serif";
+
+/* ============================================================
+   DATA
+   ============================================================ */
+const HOUR_LABELS = ['00','02','04','06','08','10','12','14','16','18','20','22'];
+let   hourData    = [0,0,1,0,2,4,3,6,5,8,4,5];
+
+const TREND_INTR  = [1,0,2,1,0,3,2,4,5,3,6,4,7,5,4,6,8,5,4,3,6,7,5,4];
+const TREND_SAFE  = [8,7,9,10,8,12,9,11,13,10,14,11,15,12,10,13,16,12,10,9,13,15,11,10];
+const TREND_LABELS= Array.from({length:24},(_,i)=>i+'h');
+
+let trendIntr  = [...TREND_INTR];
+let trendSafe  = [...TREND_SAFE];
+let trendLabels= [...TREND_LABELS];
+
+const EVENT_TYPES = [
+  {label:'Intrusion', cls:'badge-red'},
+  {label:'Safe',      cls:'badge-green'},
+  {label:'Warning',   cls:'badge-amber'},
+  {label:'System',    cls:'badge-blue'},
+  {label:'Network',   cls:'badge-blue'},
+];
+
+let logData = [
+  {ts:'22:14:07',src:'ESP32 (Wokwi)',ev:0,dist:'7 cm',  note:'Motion detected — alarm triggered'},
+  {ts:'22:14:05',src:'Python Sim',   ev:0,dist:'9 cm',  note:'PIR HIGH, ultrasonic < 15 cm'},
+  {ts:'22:13:51',src:'Python Sim',   ev:2,dist:'13 cm', note:'Approaching — caution zone'},
+  {ts:'22:12:40',src:'ESP32 (Wokwi)',ev:1,dist:'45 cm', note:'Background movement, no alert'},
+  {ts:'22:11:18',src:'Python Sim',   ev:1,dist:'62 cm', note:'Sensor idle, environment normal'},
+  {ts:'22:09:55',src:'Flask API',    ev:3,dist:'--',    note:'POST /detect — 200 OK'},
+  {ts:'22:08:30',src:'Python Sim',   ev:0,dist:'11 cm', note:'Intrusion logged to events.json'},
+  {ts:'22:07:10',src:'ESP32 (Wokwi)',ev:1,dist:'38 cm', note:'Safe pass-through detected'},
+  {ts:'22:05:44',src:'Flask API',    ev:3,dist:'--',    note:'ngrok tunnel established'},
+  {ts:'22:04:00',src:'Python Sim',   ev:1,dist:'55 cm', note:'Simulator started — 8 events/min'},
+  {ts:'22:02:11',src:'Flask API',    ev:3,dist:'--',    note:'storage.py initialised — events.json ready'},
+  {ts:'22:00:00',src:'Flask API',    ev:3,dist:'--',    note:'System boot — all modules loaded'},
+];
+
+let kpiTotal=247, kpiInt=38, kpiSafe=209;
+let kpiNetwork=0, kpiNetworkToday=0;
+let running=true;
+let apiReqCount=1847;
+
+/* ── sparkline data ────────────────────────── */
+const sparkData = { pir:[], us:[], ldr:[], touch:[] };
+const SPARK_MAX = 30;
+
+/* ============================================================
+   CHARTS
+   ============================================================ */
+function makeScale(xLabel=true) {
+  return {
+    x: { ticks:{ font:{size:9}, color:C.txtDim, maxTicksLimit:8, autoSkip:true }, grid:{display:false}, display:xLabel },
+    y: { beginAtZero:true, ticks:{font:{size:9},color:C.txtDim}, grid:{color:C.grid} }
+  };
+}
+
+/* Trend chart */
+const trendCtx = document.getElementById('trendChart');
+const trendChart = new Chart(trendCtx, {
+  type:'line',
+  data:{
+    labels: trendLabels,
+    datasets:[
+      {label:'Intrusions', data:trendIntr, borderColor:C.danger, backgroundColor:'rgba(239,68,68,0.07)', borderWidth:2, pointRadius:2, pointBackgroundColor:C.danger, fill:true, tension:.4},
+      {label:'Safe',       data:trendSafe, borderColor:C.primary, backgroundColor:'rgba(104,219,174,0.04)', borderWidth:1.5, pointRadius:0, fill:true, tension:.4, borderDash:[5,4]},
+    ]
+  },
+  options:{...chartDefaults, scales:makeScale()}
+});
+
+/* Donut chart */
+const donutChart = new Chart(document.getElementById('donutChart'), {
+  type:'doughnut',
+  data:{
+    labels:['Intrusion','Safe','Warning'],
+    datasets:[{data:[15,78,7], backgroundColor:[C.danger,C.primary,C.warn], borderWidth:2, borderColor:'#171b26', hoverOffset:4}]
+  },
+  options:{
+    responsive:true, maintainAspectRatio:false, cutout:'70%', animation:{duration:600},
+    plugins:{ legend:{display:false}, tooltip:{callbacks:{label:ctx=>ctx.label+': '+ctx.parsed+'%'}} }
+  }
+});
+
+/* Hourly chart */
+const hourlyChart = new Chart(document.getElementById('hourlyChart'), {
+  type:'bar',
+  data:{
+    labels:HOUR_LABELS,
+    datasets:[{label:'Events', data:hourData, backgroundColor: hourData.map(v=>v>=6?C.danger:v>=3?C.warn:C.primary), borderRadius:4, borderSkipped:false}]
+  },
+  options:{...chartDefaults, scales:makeScale()}
+});
+
+/* Weekly chart (analytics) */
+const WEEK_DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+const weeklyChart = new Chart(document.getElementById('weeklyChart'), {
+  type:'bar',
+  data:{
+    labels:WEEK_DAYS,
+    datasets:[
+      {label:'Intrusions', data:[4,7,3,9,12,6,8], backgroundColor:'rgba(239,68,68,.7)', borderRadius:4},
+      {label:'Safe',       data:[22,30,18,35,40,28,32], backgroundColor:'rgba(104,219,174,.25)', borderRadius:4},
+    ]
+  },
+  options:{...chartDefaults, plugins:{legend:{display:true,labels:{color:C.txt,font:{size:10}}}}, scales:makeScale()}
+});
+
+/* Combined 4-sensor chart (normalized to 0-100) */
+const heatChart = new Chart(document.getElementById('heatChart'), {
+  type:'line',
+  data:{
+    labels: [],
+    datasets:[
+      {label:'PIR',         data:[], borderColor:'rgba(104,219,174,.95)', borderWidth:2, fill:false, tension:.35, pointRadius:0},
+      {label:'Ultrasonic',  data:[], borderColor:'rgba(96,165,250,.95)', borderWidth:1.8, fill:false, tension:.35, pointRadius:0},
+      {label:'LDR',         data:[], borderColor:'rgba(245,158,11,.95)', borderWidth:1.8, fill:false, tension:.35, pointRadius:0},
+      {label:'Touch',       data:[], borderColor:'rgba(167,139,250,.95)', borderWidth:1.8, fill:false, tension:.35, pointRadius:0},
+    ]
+  },
+  options:{
+    ...chartDefaults,
+    plugins:{legend:{display:true,labels:{color:C.txt,font:{size:10}}}},
+    scales:{
+      x:{ticks:{font:{size:9},color:C.txtDim,maxTicksLimit:8,autoSkip:true},grid:{display:false}},
+      y:{min:0,max:100,ticks:{font:{size:9},color:C.txtDim,callback:(v)=>v+'%'},grid:{color:C.grid}}
+    }
+  }
+});
+
+const SENSOR_HISTORY_MAX = 24;
+
+function clampPercent(v) {
+  return Math.max(0, Math.min(100, Math.round(v)));
+}
+
+function pushCombinedSensorPoint(s) {
+  const ts = new Date().toLocaleTimeString('en-GB', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  const pirPct = s.pir === 'HIGH' ? 100 : 0;
+  const usPct = clampPercent(s.usN);                // 0-100 cm clipped
+  const ldrPct = clampPercent((s.ldrN / 1023) * 100);
+  const touchPct = s.touchN ? 100 : 0;
+
+  heatChart.data.labels.push(ts);
+  heatChart.data.datasets[0].data.push(pirPct);
+  heatChart.data.datasets[1].data.push(usPct);
+  heatChart.data.datasets[2].data.push(ldrPct);
+  heatChart.data.datasets[3].data.push(touchPct);
+
+  if (heatChart.data.labels.length > SENSOR_HISTORY_MAX) {
+    heatChart.data.labels.shift();
+    heatChart.data.datasets.forEach((ds) => ds.data.shift());
+  }
+  heatChart.update('none');
+}
+
+/* Source Doughnut */
+const sourceChart = new Chart(document.getElementById('sourceChart'), {
+  type:'doughnut',
+  data:{
+    labels:['Backend API','Network Monitor','System Services'],
+    datasets:[{data:[42,51,7], backgroundColor:['rgba(104,219,174,.8)','rgba(96,165,250,.8)','rgba(245,158,11,.8)'], borderWidth:2, borderColor:'#1c1f2a', hoverOffset:4}]
+  },
+  options:{
+    responsive:true, maintainAspectRatio:false, cutout:'60%', animation:{duration:600},
+    plugins:{legend:{display:true,position:'bottom',labels:{color:C.txt,font:{size:10},padding:12}}, tooltip:{callbacks:{label:ctx=>ctx.label+': '+ctx.parsed+'%'}}}
+  }
+});
+
+/* Uptime Line */
+const uptimeChart = new Chart(document.getElementById('uptimeChart'), {
+  type:'line',
+  data:{
+    labels:Array.from({length:30},(_,i)=>(i+1)),
+    datasets:[
+      {label:'Uptime %', data:Array.from({length:30},()=>97+Math.random()*3), borderColor:C.primary, backgroundColor:'rgba(104,219,174,0.08)', borderWidth:2, fill:true, tension:.4, pointRadius:0}
+    ]
+  },
+  options:{...chartDefaults, scales:{...makeScale(), y:{min:90,max:101,ticks:{font:{size:9},color:C.txtDim},grid:{color:C.grid}}}}
+});
+
+/* Sparklines */
+function makeSparkline(canvasId, color) {
+  return new Chart(document.getElementById(canvasId), {
+    type:'line',
+    data:{
+      labels: Array.from({length:SPARK_MAX},(_,i)=>i),
+      datasets:[{data:Array(SPARK_MAX).fill(null), borderColor:color, borderWidth:1.5, fill:true, backgroundColor:color+'18', pointRadius:0, tension:.4}]
+    },
+    options:{responsive:true,maintainAspectRatio:false, animation:{duration:200}, plugins:{legend:{display:false}},
+      scales:{x:{display:false},y:{display:false}}}
+  });
+}
+const sparkCharts = {
+  pir:   makeSparkline('spark-pir',   C.primary),
+  us:    makeSparkline('spark-us',    C.info),
+  ldr:   makeSparkline('spark-ldr',   C.warn),
+  touch: makeSparkline('spark-touch','#a78bfa'),
+};
+
+function pushSparkline(key, val) {
+  const c = sparkCharts[key];
+  c.data.datasets[0].data.push(val);
+  if(c.data.datasets[0].data.length > SPARK_MAX) c.data.datasets[0].data.shift();
+  c.update('none');
+}
+
+/* ============================================================
+   CLOCK
+   ============================================================ */
+function updateClock() {
+  const n = new Date();
+  document.getElementById('clock').textContent = n.toLocaleTimeString('en-GB',{hour12:false});
+  document.getElementById('trend-ts').textContent = n.toLocaleTimeString('en-GB',{hour12:false,hour:'2-digit',minute:'2-digit'});
+}
+updateClock();
+setInterval(updateClock, 1000);
+
+/* ============================================================
+   RENDER LOG
+   ============================================================ */
+function renderLog(data, bodyId, showIdx=false, filterEv=null) {
+  const body = document.getElementById(bodyId);
+  body.innerHTML = '';
+  let rows = filterEv !== null ? data.filter(r=>r.ev===filterEv) : data;
+  rows.slice(0, bodyId==='log-body' ? 18 : 200).forEach((r,i) => {
+    const ev = EVENT_TYPES[r.ev];
+    const tr = document.createElement('tr');
+    if(r.ev===0) tr.className='row-intrude';
+    if(r.ev===4) tr.className='row-network';
+    tr.innerHTML = `
+      ${showIdx ? `<td class="text-mono text-dim">#${(rows.length-i).toString().padStart(4,'0')}</td>` : ''}
+      <td class="text-mono" style="font-size:10px;color:var(--txt-dim);">${r.ts}</td>
+      <td style="font-size:11px;color:var(--txt-sec);">${r.src}</td>
+      <td><span class="badge ${ev.cls}">${ev.label}</span></td>
+      <td class="text-mono" style="font-size:11px;">${r.dist}</td>
+      <td>${r.image ? `<img src="/captures/${r.image.split('/').pop()}" style="width:40px;height:30px;object-fit:cover;border-radius:3px;" onclick="showImageModal('/captures/${r.image.split('/').pop()}')" />` : ''}</td>
+      <td style="font-size:11px;color:var(--txt-sec);">${r.note}</td>`;
+    body.appendChild(tr);
+  });
+  document.getElementById('log-count').textContent = logData.length + ' entries';
+  document.getElementById('sb-badge').textContent = logData.filter(r=>r.ev===0).length;
+}
+
+function showImageModal(imageUrl) {
+  const modal = document.getElementById('image-modal');
+  const modalImg = document.getElementById('modal-image');
+  modalImg.src = imageUrl;
+  modal.style.display = 'block';
+}
+
+function closeImageModal() {
+  document.getElementById('image-modal').style.display = 'none';
+}
+
+renderLog(logData, 'log-body', false);
+renderLog(logData, 'full-log-body', true, null);
+
+/* ============================================================
+   KPI UPDATE
+   ============================================================ */
+function updateKPIs() {
+  document.getElementById('kpi-total').textContent = kpiTotal.toLocaleString();
+  document.getElementById('kpi-int').textContent   = kpiInt.toLocaleString();
+  document.getElementById('kpi-safe').textContent  = kpiSafe.toLocaleString();
+  const rate = (kpiInt/kpiTotal*100).toFixed(1);
+  document.getElementById('kpi-rate').textContent  = rate+'%';
+  document.getElementById('kpi-safe-d').textContent= (100-parseFloat(rate)).toFixed(1)+'% of total';
+  document.getElementById('api-req-count').textContent = (++apiReqCount).toLocaleString();
+
+  if (typeof kpiNetwork !== 'undefined' && document.getElementById('kpi-network')) {
+    document.getElementById('kpi-network').textContent = kpiNetwork.toLocaleString();
+    document.getElementById('kpi-network-d').textContent = `${kpiNetworkToday} today`;
+  }
+
+  /* Donut pcts */
+  const ip = Math.round(kpiInt/kpiTotal*100);
+  const sp = Math.round(kpiSafe/kpiTotal*100);
+  const wp = 100-ip-sp;
+  document.getElementById('donut-int-pct').textContent  = ip+'%';
+  document.getElementById('donut-safe-pct').textContent = sp+'%';
+  document.getElementById('donut-warn-pct').textContent = Math.max(0,wp)+'%';
+  donutChart.data.datasets[0].data = [ip, sp, Math.max(0,wp)];
+  donutChart.update('none');
+}
+
+/* ============================================================
+   SENSOR SCENARIOS
+   ============================================================ */
+const SCENARIOS = [
+  {pir:'LOW', us:'45 cm', usN:45, ldr:'724', ldrN:724, touch:'Idle', touchN:0,
+   pirS:'badge-green',pirT:'Clear',  usS:'badge-green',usT:'Normal', ldrS:'badge-green',ldrT:'Good',  touchS:'badge-green',touchT:'Clear',  intrude:false},
+  {pir:'LOW', us:'60 cm', usN:60, ldr:'700', ldrN:700, touch:'Idle', touchN:0,
+   pirS:'badge-green',pirT:'Clear',  usS:'badge-green',usT:'Normal', ldrS:'badge-amber',ldrT:'Dim',   touchS:'badge-green',touchT:'Clear',  intrude:false},
+  {pir:'HIGH',us:'22 cm', usN:22, ldr:'680', ldrN:680, touch:'Idle', touchN:0,
+   pirS:'badge-amber',pirT:'Detecting',usS:'badge-amber',usT:'Caution',ldrS:'badge-amber',ldrT:'Dim', touchS:'badge-green',touchT:'Clear',  intrude:false},
+  {pir:'HIGH',us:'9 cm',  usN:9,  ldr:'672', ldrN:672, touch:'Active',touchN:1,
+   pirS:'badge-red', pirT:'Active', usS:'badge-red', usT:'Alert!',  ldrS:'badge-amber',ldrT:'Dim',   touchS:'badge-red', touchT:'Triggered',intrude:true},
+  {pir:'HIGH',us:'7 cm',  usN:7,  ldr:'670', ldrN:670, touch:'Active',touchN:1,
+   pirS:'badge-red', pirT:'Active', usS:'badge-red', usT:'Alert!',  ldrS:'badge-amber',ldrT:'Dim',   touchS:'badge-red', touchT:'Triggered',intrude:true},
+  {pir:'LOW', us:'30 cm', usN:30, ldr:'690', ldrN:690, touch:'Idle', touchN:0,
+   pirS:'badge-green',pirT:'Clear',  usS:'badge-green',usT:'Normal', ldrS:'badge-amber',ldrT:'Dim',   touchS:'badge-green',touchT:'Clear',  intrude:false},
+];
+let scIdx = 0;
+
+function applySc(s) {
+  /* Dashboard sensors */
+  setSensor('pir', s.pir, s.pirS, s.pirT);
+  setSensor('us',  s.us,  s.usS,  s.usT);
+  setSensor('ldr', s.ldr, s.ldrS, s.ldrT);
+  setSensor('touch',s.touch,s.touchS,s.touchT);
+
+  /* Live sensor page */
+  setLs('pir', s.pir, s.pirS, s.pirT);
+  setLs('us',  s.us,  s.usS,  s.usT);
+  setLs('ldr', s.ldr, s.ldrS, s.ldrT);
+  setLs('touch',s.touch,s.touchS,s.touchT);
+
+  /* Sparklines */
+  pushSparkline('pir',   s.pir==='HIGH'?1:0);
+  pushSparkline('us',    s.usN);
+  pushSparkline('ldr',   s.ldrN);
+  pushSparkline('touch', s.touchN);
+  pushCombinedSensorPoint(s);
+
+  /* Status + KPI + Log */
+  const st = document.getElementById('sys-status-badge');
+  if(s.intrude) {
+    st.className='alert-badge'; st.textContent='INTRUSION DETECTED';
+    kpiTotal++; kpiInt++;
+    const ts = new Date().toLocaleTimeString('en-GB',{hour12:false});
+    logData.unshift({ts,src:'Python Sim',ev:0,dist:s.us,note:'Intrusion detected — alarm triggered'});
+    document.getElementById('modal-dist').textContent = s.us;
+    if(document.getElementById('tog-toast').checked) showToast('danger','⚠ Intrusion Detected','Motion + proximity alert triggered',5000);
+    openModal();
+  } else {
+    st.className='live-dot'; st.textContent='System Online';
+    kpiTotal++; kpiSafe++;
+    const ts = new Date().toLocaleTimeString('en-GB',{hour12:false});
+    logData.unshift({ts,src:'Python Sim',ev:1,dist:s.us,note:'Safe motion event logged'});
+  }
+  updateKPIs();
+  renderLog(logData,'log-body');
+  renderLog(logData,'full-log-body',true,null);
+
+  /* Trend chart push */
+  trendIntr.push(trendIntr[trendIntr.length-1]+(s.intrude?1:0));
+  trendSafe.push(trendSafe[trendSafe.length-1]+(s.intrude?0:1));
+  trendLabels.push('');
+  if(trendIntr.length>28) { trendIntr.shift(); trendSafe.shift(); trendLabels.shift(); }
+  trendChart.data.labels   = trendLabels;
+  trendChart.data.datasets[0].data = trendIntr;
+  trendChart.data.datasets[1].data = trendSafe;
+  trendChart.update('none');
+}
+
+function setSensor(key,val,cls,txt) {
+  document.getElementById(key+'-v').textContent = val;
+  const s = document.getElementById(key+'-s');
+  s.className = 'badge '+cls; s.textContent = txt;
+}
+function setLs(key,val,cls,txt) {
+  document.getElementById('ls-'+key+'-v').textContent = val;
+  const s = document.getElementById('ls-'+key+'-s');
+  s.className = 'badge '+cls; s.textContent = txt;
+}
+
+/* ============================================================
+   SIMULATOR CONTROLS
+   ============================================================ */
+let simInterval;
+function startSim() {
+  if(simInterval) clearInterval(simInterval);
+  const rate = parseInt(document.getElementById('rate-slider').value);
+  const ms   = Math.round(60000/rate);
+  simInterval = setInterval(()=>{
+    if(!running) return;
+    applySc(SCENARIOS[scIdx % SCENARIOS.length]);
+    scIdx++;
+  }, ms);
+}
+startSim();
+
+function setMode(m) {
+  running = m==='run';
+  document.getElementById('btn-run').className  = 'sim-btn' + (running  ? ' run-active'   : '');
+  document.getElementById('btn-pause').className = 'sim-btn' + (!running ? ' pause-active' : '');
+}
+function triggerIntrusion() {
+  applySc(SCENARIOS[3]);
+}
+
+/* ============================================================
+   NAVIGATION
+   ============================================================ */
+const PAGES = ['dashboard','sensors','analytics','apistatus','eventlog','settings'];
+const PAGE_TITLES = {
+  dashboard:'Live Dashboard', sensors:'Live Sensor Monitor',
+  analytics:'Deep Analytics', apistatus:'API Status',
+  eventlog:'Full Event Log', settings:'Settings'
+};
+
+function showPage(name) {
+  PAGES.forEach(p => {
+    document.getElementById('page-'+p).classList.toggle('active', p===name);
+    document.getElementById('nav-'+p)?.classList.toggle('active', p===name);
+  });
+  document.getElementById('topbar-title').textContent = PAGE_TITLES[name] || name;
+}
+
+/* ============================================================
+   MODAL
+   ============================================================ */
+function openModal() {
+  document.getElementById('intrusion-modal').classList.add('open');
+  setTimeout(closeModal, 6000);
+}
+function closeModal() {
+  document.getElementById('intrusion-modal').classList.remove('open');
+}
+
+/* ============================================================
+   TOAST
+   ============================================================ */
+function showToast(type, title, msg, duration=4000) {
+  const stack = document.getElementById('toast-stack');
+  const t = document.createElement('div');
+  const colors = {danger:C.danger, info:C.primary, warn:C.warn};
+  const icons = {
+    danger:`<svg class="toast-icon" viewBox="0 0 18 18" fill="none" stroke="${C.danger}" stroke-width="1.5"><path d="M9 2L1 15.5h16L9 2z"/><path d="M9 7v4M9 12.5v1" stroke-linecap="round"/></svg>`,
+    info  :`<svg class="toast-icon" viewBox="0 0 18 18" fill="none" stroke="${C.primary}" stroke-width="1.5"><circle cx="9" cy="9" r="7.5"/><path d="M9 8v5M9 6v.5" stroke-linecap="round"/></svg>`,
+    warn  :`<svg class="toast-icon" viewBox="0 0 18 18" fill="none" stroke="${C.warn}" stroke-width="1.5"><path d="M9 2L1 15.5h16L9 2z"/><path d="M9 7v4M9 12.5v1" stroke-linecap="round"/></svg>`,
+  };
+  t.className = 'toast';
+  t.style.setProperty('--toast-color', colors[type]||C.primary);
+  t.innerHTML = `${icons[type]||icons.info}
+    <div class="toast-content">
+      <div class="toast-title">${title}</div>
+      <div class="toast-msg">${msg}</div>
+    </div>
+    <svg onclick="this.closest('.toast').remove()" style="cursor:pointer;flex-shrink:0;color:var(--txt-dim)" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5">
+      <path d="M3 3l8 8M11 3l-8 8" stroke-linecap="round"/>
+    </svg>`;
+  stack.appendChild(t);
+  setTimeout(()=>t.remove(), duration+300);
+}
+
+/* ============================================================
+   EXPORT LOG
+   ============================================================ */
+function exportLog() {
+  const header = 'Timestamp,Source,Type,Distance,Notes\n';
+  const rows = logData.map(r=>
+    `${r.ts},${r.src},${EVENT_TYPES[r.ev].label},${r.dist},"${r.note}"`
+  ).join('\n');
+  const blob = new Blob([header+rows],{type:'text/csv'});
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href=url; a.download='shieldhome_events.csv'; a.click();
+  URL.revokeObjectURL(url);
+  showToast('info','Export Complete','CSV saved to downloads folder',3000);
+}
+
+/* ============================================================
+   FULLSCREEN
+   ============================================================ */
+function toggleFullscreen() {
+  if(!document.fullscreenElement) document.documentElement.requestFullscreen().catch(()=>{});
+  else document.exitFullscreen();
+}
+
+/* ============================================================
+   AUTO-INIT
+   ============================================================ */
+/* ngrok status after 4s */
+setTimeout(()=>{
+  const nd = document.getElementById('ngrok-dot');
+  const ns = document.getElementById('ngrok-status');
+  const na = document.getElementById('ngrok-api-s');
+  if(nd) nd.className='svc-dot green';
+  if(ns) { ns.className='badge badge-green'; ns.textContent='Active'; }
+  if(na) { na.className='badge badge-green'; na.textContent='Active'; }
+  document.getElementById('api-url').textContent = 'https://a4f2-102-89.ngrok.io/api/events';
+  document.getElementById('api-base').textContent= 'ngrok: a4f2-102-89.ngrok.io';
+  showToast('info','ngrok Tunnel Active','Public endpoint established — a4f2-102-89.ngrok.io',4000);
+}, 4000);
+
+/* welcome toast */
+setTimeout(()=>{
+  showToast('info','ShieldHome Online','All sensors connected and streaming',3500);
+}, 800);
+
+updateKPIs();
+
+/* ============================================================
+   REAL DATA API — polls dashboard.py Flask server
+   Falls back gracefully to simulation if server is unreachable
+   ============================================================ */
+const DASH_API   = '/dashboard/api';
+let   usingRealData = false;
+let   pollInterval  = null;
+let   authRedirectPending = false;
+
+function stopRealPolling() {
+  if (pollInterval) {
+    clearInterval(pollInterval);
+    pollInterval = null;
+  }
+}
+
+function handleUnauthorized() {
+  if (authRedirectPending) return true;
+  authRedirectPending = true;
+  usingRealData = false;
+  stopRealPolling();
+
+  const srcEl = document.getElementById('data-source-label');
+  if (srcEl) srcEl.textContent = 'Session expired';
+
+  showToast('warn', 'Session expired', 'Please sign in again. Redirecting to login...', 2200);
+  setTimeout(() => {
+    window.location.replace('/login');
+  }, 900);
+  return true;
+}
+
+/** Fetch real stats (KPIs + hourly + weekly) from dashboard.py */
+async function fetchStats() {
+  try {
+    const res = await fetch(`${DASH_API}/stats`, { signal: AbortSignal.timeout(3000) });
+    if (res.status === 401) {
+      handleUnauthorized();
+      return null;
+    }
+    if (!res.ok) return null;
+    return await res.json();
+  } catch { return null; }
+}
+
+/** Fetch real event log from dashboard.py */
+async function fetchEvents(limit=100) {
+  try {
+    const res = await fetch(`${DASH_API}/events?limit=${limit}`, { signal: AbortSignal.timeout(3000) });
+    if (res.status === 401) {
+      handleUnauthorized();
+      return [];
+    }
+    if (!res.ok) return [];
+    return await res.json();
+  } catch { return []; }
+}
+
+/** Fetch latest sensor reading from dashboard.py */
+async function fetchLatestSensor() {
+  try {
+    const res = await fetch(`${DASH_API}/sensors/latest`, { signal: AbortSignal.timeout(3000) });
+    if (res.status === 401) {
+      handleUnauthorized();
+      return null;
+    }
+    if (!res.ok) return null;
+    return await res.json();
+  } catch { return null; }
+}
+
+/** Apply real stats to KPI cards and charts */
+function applyRealStats(stats) {
+  kpiTotal = stats.total;
+  kpiInt   = stats.intrusions;
+  kpiSafe  = stats.safe;
+  kpiNetwork = stats.network_events || 0;
+  kpiNetworkToday = stats.today_network || 0;
+
+  document.getElementById('kpi-total').textContent = kpiTotal.toLocaleString();
+  document.getElementById('kpi-int').textContent   = kpiInt.toLocaleString();
+  document.getElementById('kpi-safe').textContent  = kpiSafe.toLocaleString();
+  document.getElementById('kpi-rate').textContent  = stats.alert_rate + '%';
+  if (document.getElementById('kpi-network')) {
+    document.getElementById('kpi-network').textContent = kpiNetwork.toLocaleString();
+    document.getElementById('kpi-network-d').textContent = `${kpiNetworkToday} today`;
+  }
+
+  const td = stats.today_intrusions;
+  document.getElementById('kpi-int-d').innerHTML =
+    `<svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor"><path d="M5 2l4 6H1z"/></svg>+${td} today`;
+  document.getElementById('kpi-total-d').innerHTML =
+    `<svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor"><path d="M5 2l4 6H1z"/></svg>+${stats.today_total} today`;
+  document.getElementById('kpi-safe-d').textContent =
+    (100 - stats.alert_rate).toFixed(1) + '% of total';
+
+  /* Donut */
+  const ip = Math.round(stats.intrusions / (stats.total||1) * 100);
+  const sp = Math.round(stats.safe       / (stats.total||1) * 100);
+  const wp = Math.max(0, 100 - ip - sp);
+  document.getElementById('donut-int-pct').textContent  = ip + '%';
+  document.getElementById('donut-safe-pct').textContent = sp + '%';
+  document.getElementById('donut-warn-pct').textContent = wp + '%';
+  donutChart.data.datasets[0].data = [ip, sp, wp];
+  donutChart.update('none');
+
+  /* Hourly bar chart */
+  if (stats.hourly && stats.hourly.length === 24) {
+    const hLabels = Array.from({length:12},(_,i)=>String(i*2).padStart(2,'0'));
+    const hData   = stats.hourly.filter((_,i)=>i%2===0);
+    hourlyChart.data.labels = hLabels;
+    hourlyChart.data.datasets[0].data = hData;
+    hourlyChart.data.datasets[0].backgroundColor = hData.map(v=>v>=6?C.danger:v>=3?C.warn:C.primary);
+    hourlyChart.update('none');
+  }
+
+  /* Weekly chart */
+  if (stats.weekly && stats.weekly.length === 7) {
+    weeklyChart.data.labels = stats.weekly.map(d=>d.day);
+    weeklyChart.data.datasets[0].data = stats.weekly.map(d=>d.intrusions);
+    weeklyChart.data.datasets[1].data = stats.weekly.map(d=>d.safe);
+    weeklyChart.update('none');
+  }
+}
+
+/** Apply real event log rows */
+function applyRealEvents(events) {
+  if (!events || !events.length) return;
+  /* Merge real events into logData (avoid duplicates by timestamp) */
+  const existingTs = new Set(logData.map(e=>e.ts+e.note));
+  let newIntrusions = 0;
+
+  events.forEach(ev => {
+    const key = ev.ts + ev.note;
+    if (!existingTs.has(key)) {
+      logData.unshift({
+        ts:   ev.ts,
+        src:  ev.src || 'Flask API',
+        ev:   ev.ev,
+        dist: ev.dist,
+        note: ev.note,
+      });
+      existingTs.add(key);
+      if (ev.ev === 0) newIntrusions++;
+    }
+  });
+
+  if (newIntrusions > 0) {
+    showToast('danger', `${newIntrusions} New Intrusion${newIntrusions>1?'s':''}`,
+              'Real events loaded from events.json', 4000);
+  }
+
+  renderLog(logData, 'log-body');
+  renderLog(logData, 'full-log-body', true, null);
+}
+
+/** Apply latest sensor reading */
+function applyRealSensor(sensor) {
+  if (!sensor) return;
+  const pirVal   = sensor.pir === true || sensor.pir === 'HIGH' ? 'HIGH' : 'LOW';
+  const dist     = sensor.distance !== undefined && sensor.distance !== '--'
+                    ? `${sensor.distance} cm` : '--';
+  const ldr      = sensor.ldr !== undefined && sensor.ldr !== '--' ? String(sensor.ldr) : '--';
+  const touch    = sensor.touch === true || sensor.touch === 'Active' ? 'Active' : 'Idle';
+  const intrude  = sensor.intrusion;
+
+  const pirCls   = pirVal==='HIGH'   ? (intrude ? 'badge-red'   : 'badge-amber') : 'badge-green';
+  const pirTxt   = pirVal==='HIGH'   ? (intrude ? 'Active'      : 'Detecting')   : 'Clear';
+  const usCls    = intrude ? 'badge-red' : (sensor.distance < 20 ? 'badge-amber' : 'badge-green');
+  const usTxt    = intrude ? 'Alert!'    : (sensor.distance < 20 ? 'Caution'     : 'Normal');
+  const ldrCls   = ldr!=='--' && +ldr < 650 ? 'badge-amber' : 'badge-green';
+  const ldrTxt   = ldr!=='--' && +ldr < 650 ? 'Dim' : 'Good';
+  const tchCls   = touch==='Active' ? 'badge-red'   : 'badge-green';
+  const tchTxt   = touch==='Active' ? 'Triggered'   : 'Clear';
+
+  setSensor('pir',   pirVal, pirCls,   pirTxt);
+  setSensor('us',    dist,   usCls,    usTxt);
+  setSensor('ldr',   ldr,    ldrCls,   ldrTxt);
+  setSensor('touch', touch,  tchCls,   tchTxt);
+
+  setLs('pir',   pirVal, pirCls,   pirTxt);
+  setLs('us',    dist,   usCls,    usTxt);
+  setLs('ldr',   ldr,    ldrCls,   ldrTxt);
+  setLs('touch', touch,  tchCls,   tchTxt);
+
+  document.getElementById('api-req-count').textContent = (++apiReqCount).toLocaleString();
+}
+
+/** Main poll cycle */
+async function pollRealData() {
+  const [stats, events, sensor] = await Promise.all([
+    fetchStats(),
+    fetchEvents(100),
+    fetchLatestSensor(),
+  ]);
+
+  if (stats) {
+    usingRealData = true;
+    applyRealStats(stats);
+    document.getElementById('api-url').textContent =
+      `${window.location.origin}/dashboard/api/events`;
+  }
+  if (events)  applyRealEvents(events);
+  if (sensor)  applyRealSensor(sensor);
+
+  /* Update data-source indicator */
+  const srcEl = document.getElementById('data-source-label');
+  if (srcEl) srcEl.textContent = usingRealData ? '🟢 Live (events.json)' : '🟡 Simulated';
+}
+
+/** Check if we are being served from dashboard.py (Flask) */
+async function initRealData() {
+  try {
+    const res = await fetch(`${DASH_API}/health`, { signal: AbortSignal.timeout(2000) });
+    if (res.status === 401) {
+      handleUnauthorized();
+      return;
+    }
+    if (res.ok) {
+      const health = await res.json();
+      console.log('[ShieldHome] Connected to dashboard.py Flask server:', health);
+
+      /* Injection: show data-source badge in topbar sub */
+      const subEl = document.querySelector('.tb-sub');
+      if (subEl) {
+        const span = document.createElement('span');
+        span.id = 'data-source-label';
+        span.style.cssText = 'margin-left:8px;font-size:9px;opacity:.7;';
+        span.textContent = '🟢 Live (events.json)';
+        subEl.appendChild(span);
+      }
+
+      /* First immediate fetch */
+      await pollRealData();
+
+      /* Then poll at the selected refresh interval */
+      const sel = document.getElementById('refresh-select');
+      const startPoll = () => {
+        if (authRedirectPending) return;
+        stopRealPolling();
+        pollInterval = setInterval(pollRealData, parseInt(sel.value));
+      };
+      sel.addEventListener('change', startPoll);
+      startPoll();
+
+      showToast('info', 'Connected to Flask API',
+        `Real data from events.json · ${health.events_file}`, 4000);
+    }
+  } catch {
+    console.log('[ShieldHome] dashboard.py not detected — running in standalone/simulation mode');
+  }
+}
+
+/* Kick off — small delay so page renders first */
+setTimeout(initRealData, 1200);
+
+/* Logout action */
+function logout(e) {
+  e.preventDefault();
+  sessionStorage.removeItem('aegis_user');
+  window.location.href = '/logout';
+}
+</script>
+</body>
+</html>

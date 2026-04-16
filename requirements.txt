@@ -1,0 +1,12 @@
+flask
+flask-cors
+flask-mail
+python-dotenv
+pymongo
+certifi
+requests
+pandas
+psutil
+torch>=2.0.0
+torchvision>=0.15.0
+pillow>=9.0.0
